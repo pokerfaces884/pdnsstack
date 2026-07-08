@@ -1,0 +1,23 @@
+[Unit]
+Description=PowerDNS Stack Authoritative Server
+After=pdnsstack-db.service
+Requires=pdnsstack-db.service
+
+[Container]
+ContainerName=${PDNS_AUTH_CONTAINER}
+Image=docker.io/powerdns/pdns-auth:latest
+Network=pdnsstack-net.network
+IP=${PDNS_AUTH_IPV4}
+IP6=${PDNS_AUTH_IPV6}
+Volume=${BASE_DIR}/config/auth/pdns.conf:/etc/pdns/pdns.conf:ro,Z
+PublishPort=${HOST_IPV4}:${PDNS_AUTH_DNS_PORT}:${PDNS_AUTH_INTERNAL_DNS_PORT}/udp
+PublishPort=${HOST_IPV4}:${PDNS_AUTH_DNS_PORT}:${PDNS_AUTH_INTERNAL_DNS_PORT}/tcp
+PublishPort=${HOST_IPV4}:${PDNS_AUTH_API_PORT}:${PDNS_AUTH_INTERNAL_API_PORT}/tcp
+Exec=pdns_server --guardian=no --daemon=no --config-dir=/etc/pdns
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

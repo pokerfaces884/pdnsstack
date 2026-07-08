@@ -1,0 +1,10 @@
+[Unit]
+Description=PowerDNS Stack MariaDB Full Backup
+After=pdnsstack-db.service
+Requires=pdnsstack-db.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=${BASE_DIR}/.env
+ExecStart=/bin/bash -c 'mkdir -p ${BASE_DIR}/backup/db && podman exec ${DB_CONTAINER} mariadb-dump -uroot -p${MYSQL_ROOT_PASSWORD} --single-transaction --routines --events --triggers --all-databases | gzip > ${BASE_DIR}/backup/db/pdnsstack-db_$(date +%%Y%%m%%d_%%H%%M%%S).sql.gz'
+ExecStartPost=/usr/bin/find ${BASE_DIR}/backup/db -type f -name "*.sql.gz" -mtime +${BACKUP_RETENTION_DAYS} -delete

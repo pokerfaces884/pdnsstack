@@ -1,0 +1,9 @@
+[Unit]
+Description=PowerDNS Stack Weekly MariaDB Backup Timer
+
+[Timer]
+OnCalendar=${BACKUP_SCHEDULE}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

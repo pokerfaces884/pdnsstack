@@ -1,0 +1,37 @@
+addLocal("0.0.0.0:53", { doTCP=true })
+
+webserver("${DNSDIST_IPV4}:8083", "${DNSDIST_API_KEY}", "${DNSDIST_API_KEY}")
+controlSocket("${DNSDIST_IPV4}:5199")
+setKey("${DNSDIST_CONSOLE_KEY}")
+
+setACL({
+  "127.0.0.0/8",
+  "${LAN_ALLOWED_CIDR}",
+  "${PDNS_IPV4_SUBNET}",
+  "${PDNS_IPV6_SUBNET}"
+})
+
+setPoolServerPolicy(firstAvailable)
+
+newServer({
+  address="${CACHE_INT_IPV4}:${CACHE_INT_INTERNAL_DNS_PORT}",
+  name="pdnsstack-cache-int",
+  pool="default"
+})
+
+-- BEGIN_NGN
+newServer({
+  address="${CACHE_NGN_IPV4}:${CACHE_NGN_INTERNAL_DNS_PORT}",
+  name="pdnsstack-cache-ngn",
+  pool="ngn"
+})
+
+ngnDomains = newSuffixMatchNode()
+ngnDomains:add(newDNSName("flets-east.jp."))
+ngnDomains:add(newDNSName("flets-west.jp."))
+ngnDomains:add(newDNSName("flets."))
+
+addAction(SuffixMatchNodeRule(ngnDomains), PoolAction("ngn"))
+-- END_NGN
+
+addAction(AllRule(), PoolAction("default"))

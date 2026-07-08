@@ -1,0 +1,24 @@
+incoming:
+  listen:
+    - "${CACHE_INT_IPV4}:${CACHE_INT_INTERNAL_DNS_PORT}"
+  allow_from:
+    - "${PDNS_IPV4_SUBNET}"
+    - "${PDNS_IPV6_SUBNET}"
+    - "${LAN_ALLOWED_CIDR}"
+
+webserver:
+  webserver: true
+  address: "0.0.0.0"
+  port: ${CACHE_INT_INTERNAL_API_PORT}
+  allow_from:
+    - "127.0.0.1"
+    - "${PDNS_IPV4_SUBNET}"
+    - "${LAN_ALLOWED_CIDR}"
+    - "${ZABBIX_SERVER_IPV4}/32"
+  api_key: "${CACHE_INT_API_KEY}"
+
+recursor:
+  dnssec: "validate"
+# BEGIN_UPSTREAM
+  forward_zones_recurse:
+# END_UPSTREAM

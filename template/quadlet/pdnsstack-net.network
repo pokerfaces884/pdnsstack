@@ -1,0 +1,9 @@
+[Unit]
+Description=PowerDNS Stack Network
+
+[Network]
+NetworkName=${PDNS_NETWORK_NAME}
+Subnet=${PDNS_IPV4_SUBNET}
+Gateway=${PDNS_IPV4_GATEWAY}
+IPv6=true
+Subnet=${PDNS_IPV6_SUBNET}
