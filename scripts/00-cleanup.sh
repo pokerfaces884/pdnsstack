@@ -1,53 +1,57 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ENV_FILE="${REPO_DIR}/.env"
+
 if [[ -f "${ENV_FILE}" ]]; then
-  # shellcheck disable=SC1090
+  set -a
+  # shellcheck source=/dev/null
   source "${ENV_FILE}"
-else
-  QUADLET_DIR=/etc/containers/systemd
-  SYSTEMD_DIR=/etc/systemd/system
+  set +a
 fi
 
-SERVICES=(
-  pdnsstack-dnsdist.service
-  pdnsstack-cache-int.service
-  pdnsstack-cache-ngn.service
-  pdnsstack-auth.service
-  pdnsstack-db.service
-  pdnsstack-poweradmin.service
-  pdnsstack-backup.timer
-  pdnsstack-backup.service
-)
-CONTAINERS=(
-  pdnsstack-dnsdist
-  pdnsstack-cache-int
-  pdnsstack-cache-ngn
-  pdnsstack-auth
-  pdnsstack-db
-  pdnsstack-poweradmin
+PDNSSTACK_MODULE_PREFIX="${PDNSSTACK_MODULE_PREFIX:-pdnsstack}"
+PDNSSTACK_QUADLET_DIR="${PDNSSTACK_QUADLET_DIR:-/etc/containers/systemd}"
+
+MODULES=(
+  "${PDNSSTACK_NETWORK_NAME:-${PDNSSTACK_MODULE_PREFIX}-net}"
+  "${PDNSSTACK_POD_NAME:-${PDNSSTACK_MODULE_PREFIX}-pod}"
+  "${PDNSSTACK_DNSDIST_NAME:-${PDNSSTACK_MODULE_PREFIX}-dnsdist}"
+  "${PDNSSTACK_CACHE_INT_NAME:-${PDNSSTACK_MODULE_PREFIX}-cache-int}"
+  "${PDNSSTACK_CACHE_NGN_NAME:-${PDNSSTACK_MODULE_PREFIX}-cache-ngn}"
+  "${PDNSSTACK_AUTH_NAME:-${PDNSSTACK_MODULE_PREFIX}-auth}"
+  "${PDNSSTACK_DB_NAME:-${PDNSSTACK_MODULE_PREFIX}-db}"
+  "${PDNSSTACK_POWERADMIN_NAME:-${PDNSSTACK_MODULE_PREFIX}-poweradmin}"
+  "${PDNSSTACK_BACKUP_NAME:-${PDNSSTACK_MODULE_PREFIX}-backup}"
 )
 
-echo "[INFO] Stopping services..."
-for svc in "${SERVICES[@]}"; do
-  systemctl disable --now "${svc}" 2>/dev/null || true
+UNIT_SUFFIXES=(service timer)
+QUADLET_SUFFIXES=(container network pod volume service timer)
+
+echo "[INFO] Cleanup pdnsstack modules only."
+echo "[INFO] Quadlet dir: ${PDNSSTACK_QUADLET_DIR}"
+
+for module in "${MODULES[@]}"; do
+  for suffix in "${UNIT_SUFFIXES[@]}"; do
+    unit="${module}.${suffix}"
+    systemctl disable --now "${unit}" >/dev/null 2>&1 || true
+    systemctl stop "${unit}" >/dev/null 2>&1 || true
+  done
 done
 
-echo "[INFO] Removing containers..."
-for c in "${CONTAINERS[@]}"; do
-  podman rm -f "${c}" 2>/dev/null || true
+for module in "${MODULES[@]}"; do
+  for suffix in "${QUADLET_SUFFIXES[@]}"; do
+    target="${PDNSSTACK_QUADLET_DIR}/${module}.${suffix}"
+    if [[ -e "${target}" || -L "${target}" ]]; then
+      echo "[INFO] Remove: ${target}"
+      rm -f "${target}"
+    fi
+  done
 done
 
-echo "[INFO] Removing Quadlet and systemd files..."
-rm -f "${QUADLET_DIR:-/etc/containers/systemd}/pdnsstack-"*.container
-rm -f "${QUADLET_DIR:-/etc/containers/systemd}/pdnsstack-net.network"
-rm -f "${SYSTEMD_DIR:-/etc/systemd/system}/pdnsstack-backup.service"
-rm -f "${SYSTEMD_DIR:-/etc/systemd/system}/pdnsstack-backup.timer"
-
-echo "[INFO] Removing generated repository config..."
-find "${REPO_DIR}/config" -type f ! -name ".gitkeep" -delete 2>/dev/null || true
 systemctl daemon-reload
+systemctl reset-failed || true
 
-echo "[INFO] Cleanup completed. Data and backups were not deleted."
+echo "[INFO] Cleanup finished. Data and backup directories were not removed."

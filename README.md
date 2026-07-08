@@ -5,22 +5,12 @@ Podman Quadlet based PowerDNS stack for dnsdist, PowerDNS Recursor, NGN specific
 ## Main design
 
 - Single Podman network: `pdnsstack-net`
-- Internal container subnet: `172.30.0.0/24` and `fd00:53::/64`
+- Single Podman network in `.env.sample`: `192.0.2.0/24` RFC5737 TEST-NET-1 for documentation
+- Internal IPv6 container subnet: `fd00:53::/64`
 - Host-facing DNS service: `pdnsstack-dnsdist` on `53/udp` and `53/tcp`
-- Direct monitoring/debug ports are published on `HOST_IPV4`
-- `pdnsstack-cache-ngn` is automatically disabled when `NGN_DNS_IPV6_1` and `NGN_DNS_IPV6_2` are empty
-
-## Host exposed ports
-
-- `53/udp,tcp`: dnsdist DNS
-- `3306/tcp`: MariaDB
-- `10053/udp,tcp`: cache-int DNS
-- `10080/tcp`: cache-int REST API
-- `10054/udp,tcp`: cache-ngn DNS, only when NGN is enabled
-- `10081/tcp`: cache-ngn REST API, only when NGN is enabled
-- `11053/udp,tcp`: pdns-auth DNS
-- `11080/tcp`: pdns-auth REST API
-- `12080/tcp`: PowerAdmin HTTP
+- Initial authoritative DNS zone is configured by `PDNSSTACK_INITIAL_DOMAIN` in `.env`
+- API / console / web secrets may be entered manually in `.env`; if left empty, `01-create.sh` auto-generates 20-character values using `openssl` and writes them back to `.env`
+- `pdnsstack-cache-ngn` is automatically disabled when NGN IPv6 DNS variables are empty
 
 ## Usage
 
@@ -44,5 +34,4 @@ sudo ./scripts/06-security-verify.sh
 sudo ./scripts/00-cleanup.sh
 ```
 
-By default `00-cleanup.sh` does not delete `${BASE_DIR}/data` or `${BASE_DIR}/backup`.
-# pdnsstack
+`00-cleanup.sh` removes only pdnsstack-related Quadlet files and generated services. It does not initialize or delete the whole `/etc/containers/systemd` directory. By default, it does not delete `${PDNSSTACK_BASE_DIR}/data` or `${PDNSSTACK_BASE_DIR}/backup`.
