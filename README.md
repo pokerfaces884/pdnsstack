@@ -1,4 +1,4 @@
-# pdns-stack
+# pdns-stack (Experimental!!)
 
 Podman Quadlet based PowerDNS stack for dnsdist, PowerDNS Recursor, NGN specific cache, Authoritative DNS, PowerAdmin, MariaDB, and weekly backup.
 
