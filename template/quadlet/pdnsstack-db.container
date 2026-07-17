@@ -4,15 +4,15 @@ After=pdnsstack-net-network.service
 Requires=pdnsstack-net-network.service
 
 [Container]
-ContainerName=${DB_CONTAINER}
+ContainerName=${PDNSSTACK_DB_NAME}
 Image=docker.io/library/mariadb:11
 Network=pdnsstack-net.network
-IP=${DB_IPV4}
-IP6=${DB_IPV6}
-Environment=MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+IP=${PDNSSTACK_DB_IPV4}
+IP6=${PDNSSTACK_DB_IPV6}
+Environment=MARIADB_ROOT_PASSWORD=${PDNSSTACK_DB_ROOT_PASSWORD}
 Volume=${PDNSSTACK_BASE_DIR}/data/db:/var/lib/mysql:Z
 Volume=${PDNSSTACK_BASE_DIR}/config/db/my.cnf:/etc/mysql/conf.d/pdnsstack.cnf:ro,Z
-PublishPort=${PDNSSTACK_HOST_IPV4}:${DB_PORT}:3306/tcp
+PublishPort=${PDNSSTACK_HOST_IPV4}:${PDNSSTACK_DB_PORT}:3306/tcp
 
 [Service]
 Restart=always

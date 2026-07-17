@@ -53,21 +53,21 @@ add_or_modify_selinux_port tcp "${PDNSSTACK_DB_PORT}" mysqld_port_t
 
 # firewalld rich rules
 if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
-  add_rich_rule "${LAN_ALLOWED_CIDR}" "${PDNSSTACK_DNSDIST_DNS_PORT}" udp
-  add_rich_rule "${LAN_ALLOWED_CIDR}" "${PDNSSTACK_DNSDIST_DNS_PORT}" tcp
-  add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_INT_DNS_PORT}" udp
-  add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_INT_DNS_PORT}" tcp
-  add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_INT_API_PORT}" tcp
-  add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_AUTH_DNS_PORT}" udp
-  add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_AUTH_DNS_PORT}" tcp
-  add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_AUTH_API_PORT}" tcp
+  add_rich_rule "${PDNSSTACK_LAN_ALLOWED_CIDR}" "${PDNSSTACK_DNSDIST_DNS_PORT}" udp
+  add_rich_rule "${PDNSSTACK_LAN_ALLOWED_CIDR}" "${PDNSSTACK_DNSDIST_DNS_PORT}" tcp
+  add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_INT_DNS_PORT}" udp
+  add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_INT_DNS_PORT}" tcp
+  add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_INT_API_PORT}" tcp
+  add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_AUTH_DNS_PORT}" udp
+  add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_AUTH_DNS_PORT}" tcp
+  add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_AUTH_API_PORT}" tcp
   if [[ "${ENABLE_CACHE_NGN}" == "true" ]]; then
-    add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_NGN_DNS_PORT}" udp
-    add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_NGN_DNS_PORT}" tcp
-    add_rich_rule "${ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_NGN_API_PORT}" tcp
+    add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_NGN_DNS_PORT}" udp
+    add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_NGN_DNS_PORT}" tcp
+    add_rich_rule "${PDNSSTACK_ZABBIX_SERVER_IPV4}/32" "${PDNSSTACK_CACHE_NGN_API_PORT}" tcp
   fi
-  add_rich_rule "${DB_ALLOWED_CIDR}" "${PDNSSTACK_DB_PORT}" tcp
-  add_rich_rule "${ADMIN_ALLOWED_CIDR}" "${PDNSSTACK_POWERADMIN_HTTP_PORT}" tcp
+  add_rich_rule "${PDNSSTACK_DB_ALLOWED_CIDR}" "${PDNSSTACK_DB_PORT}" tcp
+  add_rich_rule "${PDNSSTACK_ADMIN_ALLOWED_CIDR}" "${PDNSSTACK_POWERADMIN_HTTP_PORT}" tcp
   firewall-cmd --reload
 else
   echo "[WARN] firewalld is not available or not running."

@@ -4,15 +4,15 @@ After=pdnsstack-net-network.service
 Requires=pdnsstack-net-network.service
 
 [Container]
-ContainerName=${CACHE_INT_CONTAINER}
+ContainerName=${PDNSSTACK_CACHE_INT_NAME}
 Image=docker.io/powerdns/pdns-recursor:latest
 Network=pdnsstack-net.network
-IP=${CACHE_INT_IPV4}
-IP6=${CACHE_INT_IPV6}
+IP=${PDNSSTACK_CACHE_INT_IPV4}
+IP6=${PDNSSTACK_CACHE_INT_IPV6}
 Volume=${PDNSSTACK_BASE_DIR}/config/cache-int/recursor.yml:/etc/powerdns/recursor.yml:ro,Z
-PublishPort=${PDNSSTACK_HOST_IPV4}:${CACHE_INT_DNS_PORT}:${CACHE_INT_INTERNAL_DNS_PORT}/udp
-PublishPort=${PDNSSTACK_HOST_IPV4}:${CACHE_INT_DNS_PORT}:${CACHE_INT_INTERNAL_DNS_PORT}/tcp
-PublishPort=${PDNSSTACK_HOST_IPV4}:${CACHE_INT_API_PORT}:${CACHE_INT_INTERNAL_API_PORT}/tcp
+PublishPort=${PDNSSTACK_HOST_IPV4}:${PDNSSTACK_CACHE_INT_DNS_PORT}:${PDNSSTACK_CACHE_INT_INTERNAL_DNS_PORT}/udp
+PublishPort=${PDNSSTACK_HOST_IPV4}:${PDNSSTACK_CACHE_INT_DNS_PORT}:${PDNSSTACK_CACHE_INT_INTERNAL_DNS_PORT}/tcp
+PublishPort=${PDNSSTACK_HOST_IPV4}:${PDNSSTACK_CACHE_INT_API_PORT}:${PDNSSTACK_CACHE_INT_INTERNAL_API_PORT}/tcp
 Exec=pdns_recursor --config-dir=/etc/powerdns --yaml=recursor.yml
 
 [Service]

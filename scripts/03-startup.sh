@@ -18,7 +18,7 @@ systemctl enable --now pdnsstack-db.service
 
 echo "[INFO] Waiting for MariaDB readiness..."
 for i in {1..60}; do
-  if podman exec "${DB_CONTAINER}" mariadb-admin ping -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
+  if podman exec "${PDNSSTACK_DB_NAME}" mariadb-admin ping -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
     echo "[INFO] MariaDB is ready."
     break
   fi
@@ -29,7 +29,7 @@ for i in {1..60}; do
   sleep 2
 done
 
-podman exec -i "${DB_CONTAINER}" mariadb -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" < "${PDNSSTACK_BASE_DIR}/config/db/init.sql" || true
+podman exec -i "${PDNSSTACK_DB_NAME}" mariadb -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" < "${PDNSSTACK_BASE_DIR}/config/db/init.sql" || true
 
 systemctl enable --now pdnsstack-auth.service
 systemctl enable --now pdnsstack-poweradmin.service

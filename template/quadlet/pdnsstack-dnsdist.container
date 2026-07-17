@@ -4,14 +4,14 @@ After=pdnsstack-net-network.service
 Requires=pdnsstack-net-network.service
 
 [Container]
-ContainerName=${DNSDIST_CONTAINER}
+ContainerName=${PDNSSTACK_DNSDIST_NAME}
 Image=docker.io/powerdns/dnsdist:latest
 Network=pdnsstack-net.network
-IP=${DNSDIST_IPV4}
-IP6=${DNSDIST_IPV6}
+IP=${PDNSSTACK_DNSDIST_IPV4}
+IP6=${PDNSSTACK_DNSDIST_IPV6}
 Volume=${PDNSSTACK_BASE_DIR}/config/dnsdist/dnsdist.conf:/etc/dnsdist/dnsdist.conf:ro,Z
-PublishPort=${PDNSSTACK_HOST_IPV4}:${DNSDIST_DNS_PORT}:53/udp
-PublishPort=${PDNSSTACK_HOST_IPV4}:${DNSDIST_DNS_PORT}:53/tcp
+PublishPort=${PDNSSTACK_HOST_IPV4}:${PDNSSTACK_DNSDIST_DNS_PORT}:53/udp
+PublishPort=${PDNSSTACK_HOST_IPV4}:${PDNSSTACK_DNSDIST_DNS_PORT}:53/tcp
 Exec=dnsdist --supervised --disable-syslog -C /etc/dnsdist/dnsdist.conf
 
 [Service]

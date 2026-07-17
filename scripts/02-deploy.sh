@@ -34,20 +34,20 @@ else
   rm -rf "${PDNSSTACK_BASE_DIR}/config/cache-ngn"/*
 fi
 
-mkdir -p "${QUADLET_DIR}" "${SYSTEMD_DIR}"
-cp -f "${REPO_DIR}/config/quadlet/pdnsstack-net.network" "${QUADLET_DIR}/"
-cp -f "${REPO_DIR}/config/quadlet/pdnsstack-dnsdist.container" "${QUADLET_DIR}/"
-cp -f "${REPO_DIR}/config/quadlet/pdnsstack-cache-int.container" "${QUADLET_DIR}/"
-cp -f "${REPO_DIR}/config/quadlet/pdnsstack-auth.container" "${QUADLET_DIR}/"
-cp -f "${REPO_DIR}/config/quadlet/pdnsstack-db.container" "${QUADLET_DIR}/"
-cp -f "${REPO_DIR}/config/quadlet/pdnsstack-poweradmin.container" "${QUADLET_DIR}/"
+mkdir -p "${PDNSSTACK_QUADLET_DIR}" 
+cp -f "${REPO_DIR}/config/quadlet/pdnsstack-net.network" "${PDNSSTACK_QUADLET_DIR}/"
+cp -f "${REPO_DIR}/config/quadlet/pdnsstack-dnsdist.container" "${PDNSSTACK_QUADLET_DIR}/"
+cp -f "${REPO_DIR}/config/quadlet/pdnsstack-cache-int.container" "${PDNSSTACK_QUADLET_DIR}/"
+cp -f "${REPO_DIR}/config/quadlet/pdnsstack-auth.container" "${PDNSSTACK_QUADLET_DIR}/"
+cp -f "${REPO_DIR}/config/quadlet/pdnsstack-db.container" "${PDNSSTACK_QUADLET_DIR}/"
+cp -f "${REPO_DIR}/config/quadlet/pdnsstack-poweradmin.container" "${PDNSSTACK_QUADLET_DIR}/"
 if [[ "${ENABLE_CACHE_NGN}" == "true" ]]; then
-  cp -f "${REPO_DIR}/config/quadlet/pdnsstack-cache-ngn.container" "${QUADLET_DIR}/"
+  cp -f "${REPO_DIR}/config/quadlet/pdnsstack-cache-ngn.container" "${PDNSSTACK_QUADLET_DIR}/"
 else
-  rm -f "${QUADLET_DIR}/pdnsstack-cache-ngn.container"
+  rm -f "${PDNSSTACK_QUADLET_DIR}/pdnsstack-cache-ngn.container"
 fi
-cp -f "${REPO_DIR}/config/systemd/pdnsstack-backup.service" "${SYSTEMD_DIR}/"
-cp -f "${REPO_DIR}/config/systemd/pdnsstack-backup.timer" "${SYSTEMD_DIR}/"
+cp -f "${REPO_DIR}/config/systemd/pdnsstack-backup.service" "${PDNSSTACK_QUADLET_DIR}/"
+cp -f "${REPO_DIR}/config/systemd/pdnsstack-backup.timer" "${PDNSSTACK_QUADLET_DIR}/"
 
 chmod 700 "${PDNSSTACK_BASE_DIR}/data/db"
 chmod 755 "${PDNSSTACK_BASE_DIR}" "${PDNSSTACK_BASE_DIR}/config" "${PDNSSTACK_BASE_DIR}/data" "${PDNSSTACK_BASE_DIR}/backup"

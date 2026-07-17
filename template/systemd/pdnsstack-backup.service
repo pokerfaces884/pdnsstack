@@ -6,5 +6,5 @@ Requires=pdnsstack-db.service
 [Service]
 Type=oneshot
 EnvironmentFile=${PDNSSTACK_BASE_DIR}/.env
-ExecStart=/bin/bash -c 'mkdir -p ${PDNSSTACK_BASE_DIR}/backup/db && podman exec ${DB_CONTAINER} mariadb-dump -uroot -p${MYSQL_ROOT_PASSWORD} --single-transaction --routines --events --triggers --all-databases | gzip > ${PDNSSTACK_BASE_DIR}/backup/db/pdnsstack-db_$(date +%%Y%%m%%d_%%H%%M%%S).sql.gz'
-ExecStartPost=/usr/bin/find ${PDNSSTACK_BASE_DIR}/backup/db -type f -name "*.sql.gz" -mtime +${BACKUP_RETENTION_DAYS} -delete
+ExecStart=/bin/bash -c 'mkdir -p ${PDNSSTACK_BASE_DIR}/backup/db && podman exec ${PDNSSTACK_DB_NAME} mariadb-dump -uroot -p${PDNSSTACK_DB_ROOT_PASSWORD} --single-transaction --routines --events --triggers --all-databases | gzip > ${PDNSSTACK_BASE_DIR}/backup/db/pdnsstack-db_$(date +%%Y%%m%%d_%%H%%M%%S).sql.gz'
+ExecStartPost=/usr/bin/find ${PDNSSTACK_BASE_DIR}/backup/db -type f -name "*.sql.gz" -mtime +${PDNSSTACK_BACKUP_RETENTION_DAYS} -delete

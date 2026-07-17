@@ -1,20 +1,20 @@
 incoming:
   listen:
-    - "${CACHE_INT_IPV4}:${CACHE_INT_INTERNAL_DNS_PORT}"
+    - "${PDNSSTACK_CACHE_INT_IPV4}:${PDNSSTACK_CACHE_INT_INTERNAL_DNS_PORT}"
   allow_from:
-    - "${PDNS_IPV4_SUBNET}"
-    - "${PDNS_IPV6_SUBNET}"
-    - "${LAN_ALLOWED_CIDR}"
+    - "${PDNSSTACK_NETWORK_IPV4_SUBNET}"
+    - "${PDNSSTACK_NETWORK_IPV6_SUBNET}"
+    - "${PDNSSTACK_LAN_ALLOWED_CIDR}"
 
 webserver:
   webserver: true
   address: "0.0.0.0"
-  port: ${CACHE_INT_INTERNAL_API_PORT}
+  port: ${PDNSSTACK_CACHE_INT_INTERNAL_API_PORT}
   allow_from:
     - "127.0.0.1"
-    - "${PDNS_IPV4_SUBNET}"
-    - "${LAN_ALLOWED_CIDR}"
-  api_key: "${CACHE_INT_API_KEY}"
+    - "${PDNSSTACK_NETWORK_IPV4_SUBNET}"
+    - "${PDNSSTACK_LAN_ALLOWED_CIDR}"
+  api_key: "${PDNSSTACK_RECURSOR_API_KEY}"
 
 recursor:
   dnssec: "validate"

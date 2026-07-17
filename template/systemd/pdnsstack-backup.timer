@@ -2,7 +2,7 @@
 Description=PowerDNS Stack Weekly MariaDB Backup Timer
 
 [Timer]
-OnCalendar=${BACKUP_SCHEDULE}
+OnCalendar=${PDNSSTACK_BACKUP_SCHEDULE}
 Persistent=true
 
 [Install]
