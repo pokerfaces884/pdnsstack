@@ -24,7 +24,7 @@ load_runtime_from_repo() {
 }
 
 load_runtime_from_base() {
-  RUNTIME_FILE="${BASE_DIR}/config/runtime.env"
+  RUNTIME_FILE="${PDNSSTACK_BASE_DIR}/config/runtime.env"
   if [[ -f "${RUNTIME_FILE}" ]]; then
     # shellcheck disable=SC1090
     source "${RUNTIME_FILE}"

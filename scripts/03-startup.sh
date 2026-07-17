@@ -4,7 +4,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck disable=SC1090
 source "${REPO_DIR}/.env"
-RUNTIME_FILE="${BASE_DIR}/config/runtime.env"
+RUNTIME_FILE="${PDNSSTACK_BASE_DIR}/config/runtime.env"
 if [[ -f "${RUNTIME_FILE}" ]]; then
   # shellcheck disable=SC1090
   source "${RUNTIME_FILE}"
@@ -18,7 +18,7 @@ systemctl enable --now pdnsstack-db.service
 
 echo "[INFO] Waiting for MariaDB readiness..."
 for i in {1..60}; do
-  if podman exec "${DB_CONTAINER}" mariadb-admin ping -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
+  if podman exec "${DB_CONTAINER}" mariadb-admin ping -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
     echo "[INFO] MariaDB is ready."
     break
   fi
@@ -29,7 +29,7 @@ for i in {1..60}; do
   sleep 2
 done
 
-podman exec -i "${DB_CONTAINER}" mariadb -uroot -p"${MYSQL_ROOT_PASSWORD}" < "${BASE_DIR}/config/db/init.sql" || true
+podman exec -i "${DB_CONTAINER}" mariadb -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" < "${PDNSSTACK_BASE_DIR}/config/db/init.sql" || true
 
 systemctl enable --now pdnsstack-auth.service
 systemctl enable --now pdnsstack-poweradmin.service

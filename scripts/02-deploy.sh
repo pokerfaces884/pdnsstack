@@ -12,26 +12,26 @@ else
   ENABLE_CACHE_NGN=false
 fi
 
-mkdir -p "${BASE_DIR}"/{config,data,backup}
+mkdir -p "${PDNSSTACK_BASE_DIR}"/{config,data,backup}
 for d in dnsdist cache-int cache-ngn auth db poweradmin; do
-  mkdir -p "${BASE_DIR}/config/${d}"
+  mkdir -p "${PDNSSTACK_BASE_DIR}/config/${d}"
 done
 for d in dnsdist cache-int cache-ngn auth db poweradmin; do
-  mkdir -p "${BASE_DIR}/data/${d}"
+  mkdir -p "${PDNSSTACK_BASE_DIR}/data/${d}"
 done
-mkdir -p "${BASE_DIR}/backup/db"
+mkdir -p "${PDNSSTACK_BASE_DIR}/backup/db"
 
-cp -f "${REPO_DIR}/.env" "${BASE_DIR}/.env"
-chmod 600 "${BASE_DIR}/.env"
-cp -f "${REPO_DIR}/config/runtime.env" "${BASE_DIR}/config/runtime.env"
+cp -f "${REPO_DIR}/.env" "${PDNSSTACK_BASE_DIR}/.env"
+chmod 600 "${PDNSSTACK_BASE_DIR}/.env"
+cp -f "${REPO_DIR}/config/runtime.env" "${PDNSSTACK_BASE_DIR}/config/runtime.env"
 
 for d in dnsdist cache-int auth db poweradmin; do
-  rsync -a --delete "${REPO_DIR}/config/${d}/" "${BASE_DIR}/config/${d}/"
+  rsync -a --delete "${REPO_DIR}/config/${d}/" "${PDNSSTACK_BASE_DIR}/config/${d}/"
 done
 if [[ "${ENABLE_CACHE_NGN}" == "true" ]]; then
-  rsync -a --delete "${REPO_DIR}/config/cache-ngn/" "${BASE_DIR}/config/cache-ngn/"
+  rsync -a --delete "${REPO_DIR}/config/cache-ngn/" "${PDNSSTACK_BASE_DIR}/config/cache-ngn/"
 else
-  rm -rf "${BASE_DIR}/config/cache-ngn"/*
+  rm -rf "${PDNSSTACK_BASE_DIR}/config/cache-ngn"/*
 fi
 
 mkdir -p "${QUADLET_DIR}" "${SYSTEMD_DIR}"
@@ -49,16 +49,16 @@ fi
 cp -f "${REPO_DIR}/config/systemd/pdnsstack-backup.service" "${SYSTEMD_DIR}/"
 cp -f "${REPO_DIR}/config/systemd/pdnsstack-backup.timer" "${SYSTEMD_DIR}/"
 
-chmod 700 "${BASE_DIR}/data/db"
-chmod 755 "${BASE_DIR}" "${BASE_DIR}/config" "${BASE_DIR}/data" "${BASE_DIR}/backup"
-chmod 600 "${BASE_DIR}/config/db/init.sql" || true
-chmod 600 "${BASE_DIR}/config/poweradmin/config.inc.php" || true
+chmod 700 "${PDNSSTACK_BASE_DIR}/data/db"
+chmod 755 "${PDNSSTACK_BASE_DIR}" "${PDNSSTACK_BASE_DIR}/config" "${PDNSSTACK_BASE_DIR}/data" "${PDNSSTACK_BASE_DIR}/backup"
+chmod 600 "${PDNSSTACK_BASE_DIR}/config/db/init.sql" || true
+chmod 600 "${PDNSSTACK_BASE_DIR}/config/poweradmin/config.inc.php" || true
 
 if command -v restorecon >/dev/null 2>&1; then
   if command -v semanage >/dev/null 2>&1; then
-    semanage fcontext -a -t container_file_t "${BASE_DIR}(/.*)?" 2>/dev/null || true
+    semanage fcontext -a -t container_file_t "${PDNSSTACK_BASE_DIR}(/.*)?" 2>/dev/null || true
   fi
-  restorecon -Rv "${BASE_DIR}" || true
+  restorecon -Rv "${PDNSSTACK_BASE_DIR}" || true
 fi
 systemctl daemon-reload
 

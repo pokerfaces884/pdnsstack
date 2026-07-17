@@ -9,8 +9,8 @@ Image=docker.io/poweradmin/poweradmin:latest
 Network=pdnsstack-net.network
 IP=${POWERADMIN_IPV4}
 IP6=${POWERADMIN_IPV6}
-Volume=${BASE_DIR}/config/poweradmin/config.inc.php:/var/www/html/inc/config.inc.php:ro,Z
-PublishPort=${HOST_IPV4}:${POWERADMIN_PORT}:${POWERADMIN_CONTAINER_PORT}/tcp
+Volume=${PDNSSTACK_BASE_DIR}/config/poweradmin/config.inc.php:/var/www/html/inc/config.inc.php:ro,Z
+PublishPort=${PDNSSTACK_HOST_IPV4}:${POWERADMIN_PORT}:${POWERADMIN_CONTAINER_PORT}/tcp
 
 [Service]
 Restart=always
