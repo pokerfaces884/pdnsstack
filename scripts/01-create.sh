@@ -82,3 +82,125 @@ echo "[INFO] Initial domain: ${PDNSSTACK_INITIAL_DOMAIN}"
 echo "[INFO] Host IPv4: ${PDNSSTACK_HOST_IPV4}"
 
 # Keep the original create/deploy logic below this validation block when merging.
+
+# --- PDNSSTACK_FORWARDERS_BEGIN ---
+# Generate PowerDNS Recursor forwarder settings.
+# NOTE:
+# - Do not modify incoming.listen here.
+# - listen is the local/container-side bind address.
+# - PDNSSTACK_DNS_* and PDNSSTACK_NGN_DNS_* are upstream forwarders.
+pdnsstack_upsert_recursor_forwarders() {
+  local file="$1"
+  local mode="$2"
+
+  if [[ ! -f "${file}" ]]; then
+    echo "[WARN] recursor config not found: ${file}"
+    return 0
+  fi
+
+  python3 - "${file}" "${mode}" <<'PY_FORWARDERS'
+import os
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+mode = sys.argv[2]
+
+text = path.read_text()
+lines = text.splitlines()
+
+if mode == "cache-int":
+    forwarders = [
+        os.environ.get("PDNSSTACK_DNS_IPV4_1", ""),
+        os.environ.get("PDNSSTACK_DNS_IPV4_2", ""),
+        os.environ.get("PDNSSTACK_DNS_IPV6_1", ""),
+        os.environ.get("PDNSSTACK_DNS_IPV6_2", ""),
+    ]
+elif mode == "cache-ngn":
+    forwarders = [
+        os.environ.get("PDNSSTACK_NGN_DNS_IPV6_1", ""),
+        os.environ.get("PDNSSTACK_NGN_DNS_IPV6_2", ""),
+    ]
+else:
+    raise SystemExit(f"unknown mode: {mode}")
+
+forwarders = [v.strip() for v in forwarders if v.strip()]
+
+if not forwarders:
+    print(f"[WARN] no forwarders configured for {mode}; forward_zones_recurse will not be written")
+    path.write_text("\n".join(lines) + "\n")
+    raise SystemExit(0)
+
+def is_top_level(line: str) -> bool:
+    return line and not line.startswith((" ", "\t")) and line.rstrip().endswith(":")
+
+# Remove existing recursor.forward_zones_recurse block if present.
+new_lines = []
+i = 0
+inside_recursor = False
+
+while i < len(lines):
+    line = lines[i]
+
+    if line == "recursor:":
+        inside_recursor = True
+        new_lines.append(line)
+        i += 1
+        continue
+
+    if inside_recursor and is_top_level(line):
+        inside_recursor = False
+
+    if inside_recursor and line.startswith("  forward_zones_recurse:"):
+        # Skip this block until next recursor child at indent 2 or next top-level section.
+        i += 1
+        while i < len(lines):
+            nxt = lines[i]
+            if is_top_level(nxt):
+                inside_recursor = False
+                break
+            if nxt.startswith("  ") and not nxt.startswith("    ") and nxt.strip():
+                break
+            i += 1
+        continue
+
+    new_lines.append(line)
+    i += 1
+
+lines = new_lines
+
+forward_block = [
+    "  forward_zones_recurse:",
+    '    - zone: "."',
+    "      forwarders:",
+]
+for f in forwarders:
+    forward_block.append(f'        - "{f}"')
+
+if "recursor:" in lines:
+    idx = lines.index("recursor:")
+    insert_at = idx + 1
+    lines[insert_at:insert_at] = forward_block
+else:
+    if lines and lines[-1].strip():
+        lines.append("")
+    lines.append("recursor:")
+    lines.extend(forward_block)
+
+path.write_text("\n".join(lines) + "\n")
+print(f"[INFO] updated forward_zones_recurse in {path} for {mode}")
+PY_FORWARDERS
+}
+
+pdnsstack_generate_recursor_forwarders() {
+  pdnsstack_upsert_recursor_forwarders "${REPO_DIR}/config/cache-int/recursor.yml" "cache-int"
+
+  if [[ "${ENABLE_CACHE_NGN:-false}" == "true" ]]; then
+    pdnsstack_upsert_recursor_forwarders "${REPO_DIR}/config/cache-ngn/recursor.yml" "cache-ngn"
+  else
+    echo "[INFO] cache-ngn disabled; skip cache-ngn forwarder generation"
+  fi
+}
+
+pdnsstack_generate_recursor_forwarders
+# --- PDNSSTACK_FORWARDERS_END ---
