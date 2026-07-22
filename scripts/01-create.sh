@@ -252,8 +252,15 @@ def render_text(text: str) -> str:
 
 def render_path_part(name: str) -> str:
     rendered = render_text(name)
+
+    if rendered.endswith(".j2"):
+        rendered = rendered[:-3]
+    elif rendered.endswith(".jinja"):
+        rendered = rendered[:-6]
+
     if prefix != "pdnsstack" and rendered.startswith("pdnsstack-"):
         rendered = f"{prefix}-" + rendered[len("pdnsstack-"):]
+
     return rendered
 
 for src in template_dir.rglob("*"):
@@ -280,6 +287,44 @@ PY_RENDER
 }
 
 pdnsstack_render_templates
+
+# ---------------------------------------------------------
+# Validate generated files
+# ---------------------------------------------------------
+
+pdnsstack_validate_generated_files() {
+  local required_files=(
+    "${CONFIG_DIR}/quadlet/${PDNSSTACK_NETWORK_NAME}.network"
+    "${CONFIG_DIR}/quadlet/${PDNSSTACK_DNSDIST_NAME}.container"
+    "${CONFIG_DIR}/quadlet/${PDNSSTACK_CACHE_INT_NAME}.container"
+    "${CONFIG_DIR}/quadlet/${PDNSSTACK_AUTH_NAME}.container"
+    "${CONFIG_DIR}/quadlet/${PDNSSTACK_DB_NAME}.container"
+    "${CONFIG_DIR}/quadlet/${PDNSSTACK_POWERADMIN_NAME}.container"
+    "${CONFIG_DIR}/systemd/${PDNSSTACK_BACKUP_NAME}.service"
+    "${CONFIG_DIR}/systemd/${PDNSSTACK_BACKUP_NAME}.timer"
+    "${CONFIG_DIR}/db/init.sql"
+    "${CONFIG_DIR}/poweradmin/config.inc.php"
+    "${CONFIG_DIR}/cache-int/recursor.yml"
+  )
+
+  if [[ "${ENABLE_CACHE_NGN:-false}" == "true" ]]; then
+    required_files+=(
+      "${CONFIG_DIR}/quadlet/${PDNSSTACK_CACHE_NGN_NAME}.container"
+      "${CONFIG_DIR}/cache-ngn/recursor.yml"
+    )
+  fi
+
+  for file in "${required_files[@]}"; do
+    if [[ ! -f "${file}" ]]; then
+      echo "[ERROR] Required generated file not found: ${file}"
+      exit 1
+    fi
+  done
+
+  echo "[INFO] Generated file validation completed."
+}
+
+pdnsstack_validate_generated_files
 
 # ---------------------------------------------------------
 # Generate PowerDNS Recursor forwarder settings

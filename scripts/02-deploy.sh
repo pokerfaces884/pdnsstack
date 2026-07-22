@@ -33,6 +33,7 @@ source "${RUNTIME_FILE}"
 required_vars=(
   PDNSSTACK_BASE_DIR
   PDNSSTACK_QUADLET_DIR
+  PDNSSTACK_SYSTEMD_DIR
 
   ENABLE_CACHE_NGN
 
@@ -56,6 +57,7 @@ done
 echo "[INFO] Starting rootful deployment."
 echo "[INFO] Base directory: ${PDNSSTACK_BASE_DIR}"
 echo "[INFO] Quadlet directory: ${PDNSSTACK_QUADLET_DIR}"
+echo "[INFO] Systemd directory: ${PDNSSTACK_SYSTEMD_DIR}"
 echo "[INFO] ENABLE_CACHE_NGN=${ENABLE_CACHE_NGN}"
 
 mkdir -p "${PDNSSTACK_BASE_DIR}"/{config,data,backup}
@@ -97,6 +99,7 @@ else
 fi
 
 mkdir -p "${PDNSSTACK_QUADLET_DIR}"
+mkdir -p "${PDNSSTACK_SYSTEMD_DIR}"
 
 cp -f "${REPO_DIR}/config/quadlet/${PDNSSTACK_NETWORK_NAME}.network" "${PDNSSTACK_QUADLET_DIR}/"
 cp -f "${REPO_DIR}/config/quadlet/${PDNSSTACK_DNSDIST_NAME}.container" "${PDNSSTACK_QUADLET_DIR}/"
@@ -111,8 +114,8 @@ else
   rm -f "${PDNSSTACK_QUADLET_DIR}/${PDNSSTACK_CACHE_NGN_NAME}.container"
 fi
 
-cp -f "${REPO_DIR}/config/systemd/${PDNSSTACK_BACKUP_NAME}.service" "${PDNSSTACK_QUADLET_DIR}/"
-cp -f "${REPO_DIR}/config/systemd/${PDNSSTACK_BACKUP_NAME}.timer" "${PDNSSTACK_QUADLET_DIR}/"
+cp -f "${REPO_DIR}/config/systemd/${PDNSSTACK_BACKUP_NAME}.service" "${PDNSSTACK_SYSTEMD_DIR}/"
+cp -f "${REPO_DIR}/config/systemd/${PDNSSTACK_BACKUP_NAME}.timer" "${PDNSSTACK_SYSTEMD_DIR}/"
 
 chmod 700 "${PDNSSTACK_BASE_DIR}/data/db"
 chmod 755 \
