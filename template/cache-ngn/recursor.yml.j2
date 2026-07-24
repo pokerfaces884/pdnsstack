@@ -17,7 +17,7 @@ webserver:
   api_key: "${PDNSSTACK_RECURSOR_API_KEY}"
 
 recursor:
+  dnssec: "validate"
+# BEGIN_UPSTREAM
   forward_zones_recurse:
-    - zone: "."
-      recurse:
-# NGN_RECURSE_SERVERS
+# END_UPSTREAM
