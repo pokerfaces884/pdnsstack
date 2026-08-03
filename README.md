@@ -7,7 +7,7 @@ Podman Quadlet based PowerDNS stack for dnsdist, PowerDNS Recursor, NGN specific
 - Single Podman network: `pdnsstack-net`
 - Single Podman network in `.env.sample`: `172.30.0.0/24`
 - Internal IPv6 container subnet: `fd00:53::/64`
-- Host-facing DNS service: `pdnsstack-dnsdist` on `1053/udp` and `1053/tcp`
+- Host-facing DNS service: `pdnsstack-dnsdist` on `53/udp` and `53/tcp`
 - Initial authoritative DNS zone is configured by `PDNSSTACK_INITIAL_DOMAIN` in `.env`
 - API / console / web secrets may be entered manually in `.env`; if left empty, `01-create.sh` auto-generates 20-character values using `openssl` and writes them back to `.env`
 - `pdnsstack-cache-ngn` is automatically disabled when NGN IPv6 DNS variables are empty
