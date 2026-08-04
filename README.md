@@ -3,7 +3,7 @@
 Podman Quadlet based PowerDNS stack for dnsdist, PowerDNS Recursor, NGN specific cache, Authoritative DNS, PowerAdmin, MariaDB, and weekly backup.
 
 ## Main design
-- It work base on rootful container.
+- It work based on rootful container.
 - Single Podman network: `pdnsstack-net`
 - Single Podman network in `.env.sample`: `172.30.0.0/24`
 - Internal IPv6 container subnet: `fd00:53::/64`
