@@ -127,6 +127,56 @@ chmod 755 \
 chmod 600 "${PDNSSTACK_BASE_DIR}/config/db/init.sql" || true
 chmod 600 "${PDNSSTACK_BASE_DIR}/config/poweradmin/config.inc.php" || true
 
+# =========================================================
+# PowerDNS gmysql Schema Download
+# =========================================================
+
+PDNSSTACK_PDNS_SCHEMA_SOURCE="${PDNSSTACK_PDNS_SCHEMA_SOURCE:-official}"
+PDNSSTACK_PDNS_SCHEMA_REF="${PDNSSTACK_PDNS_SCHEMA_REF:-master}"
+PDNS_GMYSQL_SCHEMA_FILE="${PDNSSTACK_BASE_DIR}/config/pdns/schema.mysql.sql"
+
+mkdir -p "$(dirname "${PDNS_GMYSQL_SCHEMA_FILE}")"
+
+case "${PDNSSTACK_PDNS_SCHEMA_SOURCE}" in
+  official)
+    echo "[INFO] PowerDNS gmysql schema source: official (ref: ${PDNSSTACK_PDNS_SCHEMA_REF})"
+    PDNS_GMYSQL_SCHEMA_URL="https://raw.githubusercontent.com/PowerDNS/pdns/${PDNSSTACK_PDNS_SCHEMA_REF}/modules/gmysqlbackend/schema.mysql.sql"
+    
+    echo "[INFO] Downloading PowerDNS gmysql schema from: ${PDNS_GMYSQL_SCHEMA_URL}"
+    if curl -fsSL "${PDNS_GMYSQL_SCHEMA_URL}" -o "${PDNS_GMYSQL_SCHEMA_FILE}"; then
+      if [[ ! -s "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
+        echo "[ERROR] Downloaded schema file is empty. Check ref '${PDNSSTACK_PDNS_SCHEMA_REF}' and GitHub connectivity."
+        exit 1
+      fi
+      echo "[INFO] PowerDNS gmysql schema downloaded successfully."
+      chmod 644 "${PDNS_GMYSQL_SCHEMA_FILE}"
+    else
+      echo "[ERROR] Failed to download PowerDNS gmysql schema."
+      echo "        URL: ${PDNS_GMYSQL_SCHEMA_URL}"
+      echo "        Check ref '${PDNSSTACK_PDNS_SCHEMA_REF}' and GitHub connectivity."
+      exit 1
+    fi
+    ;;
+  local)
+    echo "[INFO] PowerDNS gmysql schema source: local"
+    if [[ ! -f "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
+      echo "[ERROR] Local schema file not found: ${PDNS_GMYSQL_SCHEMA_FILE}"
+      echo "        Place the schema file manually before deploying."
+      exit 1
+    fi
+    echo "[INFO] Using local PowerDNS gmysql schema: ${PDNS_GMYSQL_SCHEMA_FILE}"
+    ;;
+  disabled)
+    echo "[INFO] PowerDNS gmysql schema import: disabled"
+    rm -f "${PDNS_GMYSQL_SCHEMA_FILE}"
+    ;;
+  *)
+    echo "[ERROR] Invalid PDNSSTACK_PDNS_SCHEMA_SOURCE: ${PDNSSTACK_PDNS_SCHEMA_SOURCE}"
+    echo "        Valid options: official, local, disabled"
+    exit 1
+    ;;
+esac
+
 if command -v restorecon >/dev/null 2>&1; then
   if command -v semanage >/dev/null 2>&1; then
     semanage fcontext -a -t container_file_t "${PDNSSTACK_BASE_DIR}(/.*)?" 2>/dev/null || true
