@@ -34,4 +34,10 @@ sudo ./scripts/06-security-verify.sh
 sudo ./scripts/00-cleanup.sh
 ```
 
-`00-cleanup.sh` removes only pdnsstack-related Quadlet files and generated services. It does not initialize or delete the whole `/etc/containers/systemd` directory. By default, it does not delete `${PDNSSTACK_BASE_DIR}/data` or `${PDNSSTACK_BASE_DIR}/backup`.
+`00-cleanup.sh` removes only pdnsstack-related Quadlet files and generated services. It does not initialize or delete the whole `/etc/containers/systemd` directory. By default, it does not delete data or backup directories.
+
+## Security notes
+
+- runtime.env may contain generated API keys and other secrets; ensure it is readable only by privileged users (recommended: `chmod 600 config/runtime.env` and the deployed copy under `PDNSSTACK_BASE_DIR`).
+- If you change `PDNSSTACK_MODULE_PREFIX`, service and unit names will change; update any automation or references accordingly. The scripts have been updated to consistently prefer generated `PDNSSTACK_*_SERVICE` variables where available.
+- SELinux (semanage/restorecon) and firewalld are optionally used by security scripts; if your host does not run them those steps are skipped. The security scripts now validate ports and CIDRs before attempting to apply rules.
