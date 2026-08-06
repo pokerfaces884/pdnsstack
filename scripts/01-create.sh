@@ -418,4 +418,37 @@ lines = new_lines
 
 forward_block = [
     "  forward_zones_recurse:",
-    '    - zone: " .
+  '    - zone: "."',
+  "      forwarders:",
+]
+
+for forwarder in forwarders:
+  forward_block.append(f'        - "{forwarder}"')
+
+new_lines = []
+i = 0
+while i < len(lines):
+  line = lines[i]
+
+  if line.strip() == "# BEGIN_UPSTREAM":
+    new_lines.append(line)
+    new_lines.extend(forward_block)
+
+    i += 1
+    while i < len(lines) and lines[i].strip() != "# END_UPSTREAM":
+      i += 1
+    continue
+
+  new_lines.append(line)
+  i += 1
+
+path.write_text("\n".join(new_lines) + "\n")
+PY_FORWARDERS
+}
+
+pdnsstack_upsert_recursor_forwarders "${CONFIG_DIR}/cache-int/recursor.yml" "cache-int"
+if [[ "${ENABLE_CACHE_NGN:-false}" == "true" ]]; then
+  pdnsstack_upsert_recursor_forwarders "${CONFIG_DIR}/cache-ngn/recursor.yml" "cache-ngn"
+fi
+
+echo "[INFO] Recursor forwarders post-processing completed."
