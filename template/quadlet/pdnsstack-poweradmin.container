@@ -5,7 +5,7 @@ Requires=pdnsstack-auth.service
 
 [Container]
 ContainerName=${PDNSSTACK_POWERADMIN_NAME}
-Image={{ PDNSSTACK_POWERADMIN_FULL_IMAGE }}
+Image={{ PDNSSTACK_POWERADMIN_IMAGE_FULL }}
 Network=pdnsstack-net.network
 IP=${PDNSSTACK_POWERADMIN_IPV4}
 IP6=${PDNSSTACK_POWERADMIN_IPV6}

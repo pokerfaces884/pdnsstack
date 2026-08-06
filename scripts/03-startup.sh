@@ -2,6 +2,9 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+LIB_FILE="${SCRIPT_DIR}/lib.sh"
+# shellcheck source=/dev/null
+source "${LIB_FILE}"
 # shellcheck disable=SC1090
 source "${REPO_DIR}/.env"
 RUNTIME_FILE="${PDNSSTACK_BASE_DIR}/config/runtime.env"
@@ -16,67 +19,71 @@ systemctl daemon-reload
 systemctl enable --now "${PDNSSTACK_NETWORK_SERVICE}"
 systemctl enable --now "${PDNSSTACK_DB_SERVICE}"
 
-echo "[INFO] Waiting for MariaDB readiness..."
-for i in {1..60}; do
-  if podman exec "${PDNSSTACK_DB_NAME}" mariadb-admin ping -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
-    echo "[INFO] MariaDB is ready."
-    break
-  fi
-  if [[ "${i}" -eq 60 ]]; then
-    echo "[ERROR] MariaDB did not become ready."
-    exit 1
-  fi
-  sleep 2
-done
+wait_for_mariadb "${PDNSSTACK_DB_NAME}" "${PDNSSTACK_DB_ROOT_PASSWORD}"
 
 podman exec -i "${PDNSSTACK_DB_NAME}" mariadb -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" < "${PDNSSTACK_BASE_DIR}/config/db/init.sql" || true
 
 # =========================================================
-# PowerDNS gmysql Schema Import
+# Schema import
 # =========================================================
 
-PDNSSTACK_PDNS_SCHEMA_SOURCE="${PDNSSTACK_PDNS_SCHEMA_SOURCE:-official}"
-PDNS_GMYSQL_SCHEMA_FILE="${PDNSSTACK_BASE_DIR}/config/pdns/schema.mysql.sql"
+PDNSSTACK_AUTH_VERSION="${PDNSSTACK_AUTH_VERSION:-5.2}"
+PDNSSTACK_POWERADMIN_VERSION="${PDNSSTACK_POWERADMIN_VERSION:-4.4.0}"
 
-if [[ "${PDNSSTACK_PDNS_SCHEMA_SOURCE}" != "disabled" ]] && [[ -f "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
-  echo "[INFO] Checking PowerDNS gmysql schema status..."
-  
-  # Check if domains table exists
-  DOMAINS_TABLE_EXISTS=$(podman exec "${PDNSSTACK_DB_NAME}" mariadb \
-    -u"${PDNSSTACK_AUTH_DB_USER}" \
-    -p"${PDNSSTACK_AUTH_DB_PASSWORD}" \
-    -D"${PDNSSTACK_AUTH_DB_NAME}" \
-    -Nse "SHOW TABLES LIKE 'domains';" 2>/dev/null || echo "")
-  
-  if [[ -z "${DOMAINS_TABLE_EXISTS}" ]]; then
-    echo "[INFO] PowerDNS gmysql schema not found. Importing schema.mysql.sql..."
-    if podman exec -i "${PDNSSTACK_DB_NAME}" mariadb \
-      -u"${PDNSSTACK_AUTH_DB_USER}" \
-      -p"${PDNSSTACK_AUTH_DB_PASSWORD}" \
-      -D"${PDNSSTACK_AUTH_DB_NAME}" \
-      < "${PDNS_GMYSQL_SCHEMA_FILE}"; then
-      echo "[INFO] PowerDNS gmysql schema imported successfully."
-      
-      # Verify tables were created
-      TABLES_COUNT=$(podman exec "${PDNSSTACK_DB_NAME}" mariadb \
-        -u"${PDNSSTACK_AUTH_DB_USER}" \
-        -p"${PDNSSTACK_AUTH_DB_PASSWORD}" \
-        -D"${PDNSSTACK_AUTH_DB_NAME}" \
-        -Nse "SHOW TABLES;" | wc -l)
-      
-      echo "[INFO] Created ${TABLES_COUNT} PowerDNS tables."
-    else
-      echo "[ERROR] Failed to import PowerDNS gmysql schema."
-      exit 1
-    fi
-  else
-    echo "[INFO] PowerDNS gmysql schema already exists. Skipping schema import."
-  fi
-elif [[ "${PDNSSTACK_PDNS_SCHEMA_SOURCE}" == "disabled" ]]; then
-  echo "[INFO] PowerDNS gmysql schema import is disabled."
+validate_version_format "PDNSSTACK_AUTH_VERSION" "${PDNSSTACK_AUTH_VERSION}" "major_minor"
+validate_version_format "PDNSSTACK_POWERADMIN_VERSION" "${PDNSSTACK_POWERADMIN_VERSION}" "semver"
+
+PDNS_GMYSQL_SCHEMA_FILE="${PDNSSTACK_BASE_DIR}/config/schema/pdns-auth-gmysql-schema.mysql.sql"
+POWERADMIN_SCHEMA_FILE="${PDNSSTACK_BASE_DIR}/config/schema/poweradmin-mysql-db-structure.sql"
+
+if check_table_exists \
+ "${PDNSSTACK_DB_NAME}" \
+ "${PDNSSTACK_AUTH_DB_USER}" \
+ "${PDNSSTACK_AUTH_DB_PASSWORD}" \
+ "${PDNSSTACK_AUTH_DB_NAME}" \
+ "domains"; then
+ echo "[INFO] PowerDNS gmysql schema already exists. Skipping schema import."
 else
-  echo "[WARN] PowerDNS gmysql schema file not found: ${PDNS_GMYSQL_SCHEMA_FILE}"
-  echo "[WARN] Skipping schema import. Make sure the schema is already created in the database."
+ if [[ ! -f "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
+   echo "[ERROR] PowerDNS gmysql schema file not found: ${PDNS_GMYSQL_SCHEMA_FILE}"
+   exit 1
+ fi
+
+ echo "[INFO] Importing PowerDNS gmysql schema..."
+ if ! podman exec -i "${PDNSSTACK_DB_NAME}" mariadb \
+   -u"${PDNSSTACK_AUTH_DB_USER}" \
+   -p"${PDNSSTACK_AUTH_DB_PASSWORD}" \
+   -D"${PDNSSTACK_AUTH_DB_NAME}" \
+   < "${PDNS_GMYSQL_SCHEMA_FILE}"; then
+   echo "[ERROR] Failed to import PowerDNS gmysql schema."
+   exit 1
+ fi
+ echo "[INFO] PowerDNS gmysql schema imported successfully."
+fi
+
+if check_table_exists \
+ "${PDNSSTACK_DB_NAME}" \
+ "${PDNSSTACK_POWERADMIN_DB_USER}" \
+ "${PDNSSTACK_POWERADMIN_DB_PASSWORD}" \
+ "${PDNSSTACK_POWERADMIN_DB_NAME}" \
+ "users"; then
+ echo "[INFO] PowerAdmin schema already exists. Skipping schema import."
+else
+ if [[ ! -f "${POWERADMIN_SCHEMA_FILE}" ]]; then
+   echo "[ERROR] PowerAdmin schema file not found: ${POWERADMIN_SCHEMA_FILE}"
+   exit 1
+ fi
+
+ echo "[INFO] Importing PowerAdmin schema..."
+ if ! podman exec -i "${PDNSSTACK_DB_NAME}" mariadb \
+   -u"${PDNSSTACK_POWERADMIN_DB_USER}" \
+   -p"${PDNSSTACK_POWERADMIN_DB_PASSWORD}" \
+   -D"${PDNSSTACK_POWERADMIN_DB_NAME}" \
+   < "${POWERADMIN_SCHEMA_FILE}"; then
+   echo "[ERROR] Failed to import PowerAdmin schema."
+   exit 1
+ fi
+ echo "[INFO] PowerAdmin schema imported successfully."
 fi
 
 systemctl enable --now "${PDNSSTACK_AUTH_SERVICE}"

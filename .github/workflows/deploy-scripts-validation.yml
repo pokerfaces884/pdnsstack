@@ -8,6 +8,8 @@ on:
       - scripts/00-cleanup.sh
       - scripts/01-create.sh
       - scripts/02-deploy.sh
+      - scripts/03-startup.sh
+      - scripts/lib.sh
       - template/**
       - .env.sample
       - config/**
@@ -19,6 +21,8 @@ on:
       - scripts/00-cleanup.sh
       - scripts/01-create.sh
       - scripts/02-deploy.sh
+      - scripts/03-startup.sh
+      - scripts/lib.sh
       - template/**
       - .env.sample
       - config/**
@@ -41,12 +45,16 @@ jobs:
           bash -n scripts/00-cleanup.sh
           bash -n scripts/01-create.sh
           bash -n scripts/02-deploy.sh
+          bash -n scripts/03-startup.sh
+          bash -n scripts/lib.sh
 
       - name: Shellcheck validation
         run: |
           shellcheck -S warning scripts/00-cleanup.sh
           shellcheck -S warning scripts/01-create.sh
           shellcheck -S warning scripts/02-deploy.sh
+          shellcheck -S warning scripts/03-startup.sh
+          shellcheck -S warning scripts/lib.sh
 
   template-generation:
     name: Template Generation and Variable Substitution
@@ -197,35 +205,132 @@ jobs:
           echo "ENABLE_CACHE_NGN=true confirmed."
 
   schema-download:
-    name: PowerDNS Schema Download Validation (Issue #33)
+    name: Version-linked Schema Download Validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download PowerDNS gmysql schema
+ 
+      - name: Validate version helper functions
         run: |
-          TEMP_DIR=$(mktemp -d)
-          trap 'rm -rf "${TEMP_DIR}"' EXIT
-          PDNS_GMYSQL_SCHEMA_FILE="${TEMP_DIR}/schema.mysql.sql"
-          PDNSSTACK_PDNS_SCHEMA_REF=master
-          PDNS_GMYSQL_SCHEMA_URL="https://raw.githubusercontent.com/PowerDNS/pdns/${PDNSSTACK_PDNS_SCHEMA_REF}/modules/gmysqlbackend/schema.mysql.sql"
+          source scripts/lib.sh
+          validate_version_format "PDNSSTACK_AUTH_VERSION" "5.2" major_minor
+          validate_version_format "PDNSSTACK_POWERADMIN_VERSION" "4.4.0" semver
+          test "$(derive_auth_image_from_version 5.2)" = "powerdns/pdns-auth-52"
+          test "$(derive_auth_schema_ref 5.2)" = "rel-auth-5.2.x"
+          test "$(derive_poweradmin_schema_ref 4.4.0)" = "v4.4.0"
 
-          if ! curl -fsSL "${PDNS_GMYSQL_SCHEMA_URL}" -o "${PDNS_GMYSQL_SCHEMA_FILE}"; then
-            echo "ERROR: Failed to download schema from ${PDNS_GMYSQL_SCHEMA_URL}"
+      - name: Reject invalid version formats
+        run: |
+          cp .env.sample .env
+          sed -i 's/^PDNSSTACK_AUTH_VERSION=.*/PDNSSTACK_AUTH_VERSION=invalid/' .env
+          if bash scripts/01-create.sh >invalid.log 2>&1; then
+            echo "ERROR: invalid auth version unexpectedly passed"
             exit 1
           fi
+          grep -q "Invalid version format" invalid.log
 
-          if [[ ! -s "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
-            echo "ERROR: Downloaded schema file is empty"
+          cp .env.sample .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_VERSION=.*/PDNSSTACK_POWERADMIN_VERSION=4.4/' .env
+          if bash scripts/01-create.sh >invalid.log 2>&1; then
+            echo "ERROR: invalid poweradmin version unexpectedly passed"
             exit 1
           fi
+          grep -q "Invalid version format" invalid.log
 
-          if ! grep -qi "CREATE TABLE" "${PDNS_GMYSQL_SCHEMA_FILE}"; then
-            echo "ERROR: Schema file missing expected CREATE TABLE statements"
+      - name: Run 02-deploy.sh with mocked schema downloads
+        run: |
+          TEST_ROOT=$(mktemp -d)
+          trap 'sudo rm -rf "${TEST_ROOT}" .env invalid.log' EXIT
+          BASE_DIR="${TEST_ROOT}/base"
+          QUADLET_DIR="${TEST_ROOT}/quadlet"
+          SYSTEMD_DIR="${TEST_ROOT}/systemd"
+          MOCK_BIN="${TEST_ROOT}/mock-bin"
+          mkdir -p "${MOCK_BIN}" "${QUADLET_DIR}" "${SYSTEMD_DIR}"
+
+          cp .env.sample .env
+          sed -i "s|^PDNSSTACK_BASE_DIR=.*|PDNSSTACK_BASE_DIR=${BASE_DIR}|" .env
+          sed -i "s|^PDNSSTACK_QUADLET_DIR=.*|PDNSSTACK_QUADLET_DIR=${QUADLET_DIR}|" .env
+          sed -i "s|^PDNSSTACK_SYSTEMD_DIR=.*|PDNSSTACK_SYSTEMD_DIR=${SYSTEMD_DIR}|" .env
+          sed -i 's/^PDNSSTACK_AUTH_VERSION=.*/PDNSSTACK_AUTH_VERSION=5.1/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_VERSION=.*/PDNSSTACK_POWERADMIN_VERSION=4.3.4/' .env
+          bash scripts/01-create.sh
+
+          cat > "${MOCK_BIN}/curl" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          output=""
+          while [[ "$#" -gt 0 ]]; do
+            case "$1" in
+              -o)
+                output="$2"
+                shift 2
+                ;;
+              *)
+                url="$1"
+                shift
+                ;;
+            esac
+          done
+          case "${url}" in
+            *modules/gmysqlbackend/schema.mysql.sql)
+              printf 'CREATE TABLE domains (id INT);\n' > "${output}"
+              ;;
+            *sql/poweradmin-mysql-db-structure.sql)
+              printf 'CREATE TABLE users (id INT);\n' > "${output}"
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          EOF
+          chmod +x "${MOCK_BIN}/curl"
+
+          cat > "${MOCK_BIN}/systemctl" <<'EOF'
+          #!/usr/bin/env bash
+          exit 0
+          EOF
+          chmod +x "${MOCK_BIN}/systemctl"
+
+          sudo env PATH="${MOCK_BIN}:$PATH" bash scripts/02-deploy.sh | tee deploy.log
+
+          test -f "${BASE_DIR}/config/schema/pdns-auth-gmysql-schema.mysql.sql"
+          test -f "${BASE_DIR}/config/schema/poweradmin-mysql-db-structure.sql"
+          grep -q "PowerDNS Authoritative schema ref: rel-auth-5.1.x" deploy.log
+          grep -q "PowerAdmin schema ref: v4.3.4" deploy.log
+
+      - name: Fail 02-deploy.sh when schema download fails
+        run: |
+          TEST_ROOT=$(mktemp -d)
+          trap 'sudo rm -rf "${TEST_ROOT}" .env deploy-fail.log' EXIT
+          BASE_DIR="${TEST_ROOT}/base"
+          QUADLET_DIR="${TEST_ROOT}/quadlet"
+          SYSTEMD_DIR="${TEST_ROOT}/systemd"
+          MOCK_BIN="${TEST_ROOT}/mock-bin"
+          mkdir -p "${MOCK_BIN}" "${QUADLET_DIR}" "${SYSTEMD_DIR}"
+
+          cp .env.sample .env
+          sed -i "s|^PDNSSTACK_BASE_DIR=.*|PDNSSTACK_BASE_DIR=${BASE_DIR}|" .env
+          sed -i "s|^PDNSSTACK_QUADLET_DIR=.*|PDNSSTACK_QUADLET_DIR=${QUADLET_DIR}|" .env
+          sed -i "s|^PDNSSTACK_SYSTEMD_DIR=.*|PDNSSTACK_SYSTEMD_DIR=${SYSTEMD_DIR}|" .env
+          bash scripts/01-create.sh
+
+          cat > "${MOCK_BIN}/curl" <<'EOF'
+          #!/usr/bin/env bash
+          exit 1
+          EOF
+          chmod +x "${MOCK_BIN}/curl"
+
+          cat > "${MOCK_BIN}/systemctl" <<'EOF'
+          #!/usr/bin/env bash
+          exit 0
+          EOF
+          chmod +x "${MOCK_BIN}/systemctl"
+
+          if sudo env PATH="${MOCK_BIN}:$PATH" bash scripts/02-deploy.sh >deploy-fail.log 2>&1; then
+            echo "ERROR: deploy unexpectedly succeeded"
             exit 1
           fi
-
-          echo "PowerDNS schema downloaded and validated successfully."
+          grep -q "Failed to download" deploy-fail.log
 
   deploy-structure:
     name: Deployment Directory Structure Validation
@@ -277,47 +382,43 @@ jobs:
           echo "Deployment directory structure validated."
 
   image-version-substitution:
-    name: Image Version Variable Substitution
+    name: Version-linked Image Substitution
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: Test default image versions from .env.sample
+ 
+      - name: Test default version-linked images from .env.sample
         run: |
           cp .env.sample .env
           bash scripts/01-create.sh
           grep -q "Image=docker.io/library/mariadb:11" config/quadlet/pdnsstack-db.container
-          grep -q "Image=docker.io/powerdns/pdns-auth:latest" config/quadlet/pdnsstack-auth.container
+          grep -q "Image=powerdns/pdns-auth-52" config/quadlet/pdnsstack-auth.container
           grep -q "Image=docker.io/powerdns/pdns-recursor:latest" config/quadlet/pdnsstack-cache-int.container
           grep -q "Image=docker.io/powerdns/dnsdist:latest" config/quadlet/pdnsstack-dnsdist.container
-          grep -q "Image=docker.io/poweradmin/poweradmin:latest" config/quadlet/pdnsstack-poweradmin.container
+          grep -q "Image=poweradmin/poweradmin:4.4.0" config/quadlet/pdnsstack-poweradmin.container
           echo "Default image versions verified."
-
-      - name: Test custom image tag
+ 
+      - name: Test custom version-derived images
         run: |
           cp .env.sample .env
-          sed -i 's/^PDNSSTACK_MARIADB_IMAGE_TAG=.*/PDNSSTACK_MARIADB_IMAGE_TAG=11.2/' .env
+          sed -i 's/^PDNSSTACK_AUTH_VERSION=.*/PDNSSTACK_AUTH_VERSION=5.1/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_VERSION=.*/PDNSSTACK_POWERADMIN_VERSION=4.3.4/' .env
           bash scripts/01-create.sh
-          grep -q "Image=docker.io/library/mariadb:11.2" config/quadlet/pdnsstack-db.container
-          echo "Custom image tag verified."
-
-      - name: Test custom image registry
+          grep -q "Image=powerdns/pdns-auth-51" config/quadlet/pdnsstack-auth.container
+          grep -q "Image=poweradmin/poweradmin:4.3.4" config/quadlet/pdnsstack-poweradmin.container
+          echo "Custom version-derived images verified."
+ 
+      - name: Test legacy image overrides remain supported
         run: |
           cp .env.sample .env
-          sed -i 's|^PDNSSTACK_POWERDNS_AUTH_IMAGE=.*|PDNSSTACK_POWERDNS_AUTH_IMAGE=harbor.example.com/pdns/auth|' .env
+          echo 'PDNSSTACK_AUTH_IMAGE_FULL=registry.example.com/pdns-auth:test' >> .env
+          echo 'PDNSSTACK_POWERADMIN_IMAGE_FULL=registry.example.com/poweradmin:test' >> .env
           bash scripts/01-create.sh
-          grep -q "Image=harbor.example.com/pdns/auth:latest" config/quadlet/pdnsstack-auth.container
-          echo "Custom image registry verified."
-
-      - name: Test FULL_IMAGE override
-        run: |
-          cp .env.sample .env
-          echo 'PDNSSTACK_MARIADB_FULL_IMAGE=custom-mariadb:dev' >> .env
-          bash scripts/01-create.sh
-          grep -q "Image=custom-mariadb:dev" config/quadlet/pdnsstack-db.container
-          echo "FULL_IMAGE override verified."
+          grep -q "Image=registry.example.com/pdns-auth:test" config/quadlet/pdnsstack-auth.container
+          grep -q "Image=registry.example.com/poweradmin:test" config/quadlet/pdnsstack-poweradmin.container
+          echo "Legacy image overrides verified."
 
       - name: Verify no unexpanded image placeholders
         run: |
@@ -329,6 +430,99 @@ jobs:
             exit 1
           fi
           echo "No unexpanded image placeholders found."
+
+  startup-schema-idempotency:
+    name: Startup Schema Import Idempotency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run 03-startup.sh twice with shared DB mocks
+        run: |
+          TEST_ROOT=$(mktemp -d)
+          trap 'rm -rf "${TEST_ROOT}" .env' EXIT
+          BASE_DIR="${TEST_ROOT}/base"
+          MOCK_BIN="${TEST_ROOT}/mock-bin"
+          STATE_DIR="${TEST_ROOT}/state"
+          mkdir -p "${BASE_DIR}/config/db" "${BASE_DIR}/config/schema" "${MOCK_BIN}" "${STATE_DIR}"
+
+          cp .env.sample .env
+          sed -i "s|^PDNSSTACK_BASE_DIR=.*|PDNSSTACK_BASE_DIR=${BASE_DIR}|" .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_DB_NAME=.*/PDNSSTACK_POWERADMIN_DB_NAME=powerdns/' .env
+          bash scripts/01-create.sh
+
+          cp config/runtime.env "${BASE_DIR}/config/runtime.env"
+          cp config/db/init.sql "${BASE_DIR}/config/db/init.sql"
+          printf 'CREATE TABLE domains (id INT);\n' > "${BASE_DIR}/config/schema/pdns-auth-gmysql-schema.mysql.sql"
+          printf 'CREATE TABLE users (id INT);\n' > "${BASE_DIR}/config/schema/poweradmin-mysql-db-structure.sql"
+
+          cat > "${MOCK_BIN}/systemctl" <<'EOF'
+          #!/usr/bin/env bash
+          exit 0
+          EOF
+          chmod +x "${MOCK_BIN}/systemctl"
+
+          cat > "${MOCK_BIN}/podman" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          args=("$@")
+          if [[ "${args[0]}" != "exec" ]]; then
+            exit 1
+          fi
+
+          idx=1
+          if [[ "${args[$idx]}" == "-i" ]]; then
+            idx=$((idx + 1))
+          fi
+          idx=$((idx + 1)) # container name
+          command="${args[$idx]}"
+          idx=$((idx + 1))
+
+          case "${command}" in
+            mariadb-admin)
+              exit 0
+              ;;
+            mariadb)
+              if [[ " ${args[*]} " == *" table_name='domains' "* ]]; then
+                [[ -f "${STATE_DIR}/domains" ]] && printf '1\n'
+                exit 0
+              fi
+              if [[ " ${args[*]} " == *" table_name='users' "* ]]; then
+                [[ -f "${STATE_DIR}/users" ]] && printf '1\n'
+                exit 0
+              fi
+
+              if [[ -t 0 ]]; then
+                exit 0
+              fi
+
+              sql="$(cat)"
+              if [[ "${sql}" == *"CREATE TABLE domains"* ]]; then
+                touch "${STATE_DIR}/domains"
+                count=$(cat "${STATE_DIR}/auth_count" 2>/dev/null || echo 0)
+                printf '%s\n' $((count + 1)) > "${STATE_DIR}/auth_count"
+              fi
+              if [[ "${sql}" == *"CREATE TABLE users"* ]]; then
+                touch "${STATE_DIR}/users"
+                count=$(cat "${STATE_DIR}/poweradmin_count" 2>/dev/null || echo 0)
+                printf '%s\n' $((count + 1)) > "${STATE_DIR}/poweradmin_count"
+              fi
+              ;;
+            *)
+              exit 1
+              ;;
+          esac
+          EOF
+          chmod +x "${MOCK_BIN}/podman"
+
+          PATH="${MOCK_BIN}:$PATH" STATE_DIR="${STATE_DIR}" bash scripts/03-startup.sh
+          PATH="${MOCK_BIN}:$PATH" STATE_DIR="${STATE_DIR}" bash scripts/03-startup.sh
+
+          test "$(cat "${STATE_DIR}/auth_count")" = "1"
+          test "$(cat "${STATE_DIR}/poweradmin_count")" = "1"
+          test -f "${STATE_DIR}/domains"
+          test -f "${STATE_DIR}/users"
 
   cleanup-script:
     name: Cleanup Script Logic Verification
