@@ -116,7 +116,7 @@ for var in "${optional_secret_vars[@]}"; do
   if [[ -z "${!var:-}" ]]; then
     value="$(generate_secret_20)"
     printf -v "${var}" '%s' "${value}"
-    export "${var}"
+    export "${var?}"
 
     if grep -qE "^[[:space:]]*${var}=" "${ENV_FILE}"; then
       sed -i -E "s|^[[:space:]]*${var}=.*|${var}=${value}|" "${ENV_FILE}"
