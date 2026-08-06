@@ -268,7 +268,7 @@ jobs:
             test -d "${BASE_DIR}/${sub}"
           done
 
-          for d in dnsdist cache-int auth db poweradmin; do
+          for d in dnsdist cache-int cache-ngn auth db poweradmin; do
             test -d "${BASE_DIR}/config/${d}"
             test -d "${BASE_DIR}/data/${d}"
           done
