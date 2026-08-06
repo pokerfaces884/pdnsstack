@@ -207,6 +207,8 @@ jobs:
   schema-download:
     name: Version-linked Schema Download Validation
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
  
@@ -434,6 +436,8 @@ jobs:
   startup-schema-idempotency:
     name: Startup Schema Import Idempotency
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
