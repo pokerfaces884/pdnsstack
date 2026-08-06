@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ENV_FILE="${REPO_DIR}/.env"
 RUNTIME_FILE="${REPO_DIR}/config/runtime.env"
+LIB_FILE="${SCRIPT_DIR}/lib.sh"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "[ERROR] This script is intended for rootful deployment."
@@ -20,6 +21,15 @@ fi
 
 # shellcheck disable=SC1090
 source "${ENV_FILE}"
+
+# shellcheck source=/dev/null
+source "${LIB_FILE}"
+
+PDNSSTACK_AUTH_VERSION="${PDNSSTACK_AUTH_VERSION:-5.2}"
+PDNSSTACK_POWERADMIN_VERSION="${PDNSSTACK_POWERADMIN_VERSION:-4.4.0}"
+
+validate_version_format "PDNSSTACK_AUTH_VERSION" "${PDNSSTACK_AUTH_VERSION}" "major_minor"
+validate_version_format "PDNSSTACK_POWERADMIN_VERSION" "${PDNSSTACK_POWERADMIN_VERSION}" "semver"
 
 if [[ ! -f "${RUNTIME_FILE}" ]]; then
   echo "[ERROR] runtime.env not found: ${RUNTIME_FILE}"
@@ -61,6 +71,7 @@ echo "[INFO] Systemd directory: ${PDNSSTACK_SYSTEMD_DIR}"
 echo "[INFO] ENABLE_CACHE_NGN=${ENABLE_CACHE_NGN}"
 
 mkdir -p "${PDNSSTACK_BASE_DIR}"/{config,data,backup}
+mkdir -p "${PDNSSTACK_BASE_DIR}/config/schema"
 
 for d in dnsdist cache-int cache-ngn auth db poweradmin; do
   mkdir -p "${PDNSSTACK_BASE_DIR}/config/${d}"
@@ -128,54 +139,53 @@ chmod 600 "${PDNSSTACK_BASE_DIR}/config/db/init.sql" || true
 chmod 600 "${PDNSSTACK_BASE_DIR}/config/poweradmin/config.inc.php" || true
 
 # =========================================================
-# PowerDNS gmysql Schema Download
+# Version-driven schema download
 # =========================================================
 
-PDNSSTACK_PDNS_SCHEMA_SOURCE="${PDNSSTACK_PDNS_SCHEMA_SOURCE:-official}"
-PDNSSTACK_PDNS_SCHEMA_REF="${PDNSSTACK_PDNS_SCHEMA_REF:-master}"
-PDNS_GMYSQL_SCHEMA_FILE="${PDNSSTACK_BASE_DIR}/config/pdns/schema.mysql.sql"
+PDNSSTACK_AUTH_IMAGE_RESOLVED="${PDNSSTACK_AUTH_IMAGE_FULL:-$(derive_auth_image_from_version "${PDNSSTACK_AUTH_VERSION}")}"
+PDNSSTACK_POWERADMIN_IMAGE_RESOLVED="${PDNSSTACK_POWERADMIN_IMAGE_FULL:-poweradmin/poweradmin:${PDNSSTACK_POWERADMIN_VERSION}}"
+PDNSSTACK_AUTH_SCHEMA_REF_RESOLVED="$(
+  derive_auth_schema_ref \
+    "${PDNSSTACK_AUTH_VERSION}" \
+    "${PDNSSTACK_AUTH_SCHEMA_REF:-${PDNSSTACK_PDNS_SCHEMA_REF:-}}"
+)"
+PDNSSTACK_POWERADMIN_SCHEMA_REF_RESOLVED="$(
+  derive_poweradmin_schema_ref \
+    "${PDNSSTACK_POWERADMIN_VERSION}" \
+    "${PDNSSTACK_POWERADMIN_SCHEMA_REF:-}"
+)"
 
-mkdir -p "$(dirname "${PDNS_GMYSQL_SCHEMA_FILE}")"
+PDNSSTACK_SCHEMA_DIR="${PDNSSTACK_BASE_DIR}/config/schema"
+PDNS_GMYSQL_SCHEMA_FILE="${PDNSSTACK_SCHEMA_DIR}/pdns-auth-gmysql-schema.mysql.sql"
+POWERADMIN_SCHEMA_FILE="${PDNSSTACK_SCHEMA_DIR}/poweradmin-mysql-db-structure.sql"
+PDNS_GMYSQL_SCHEMA_URL="https://raw.githubusercontent.com/PowerDNS/pdns/${PDNSSTACK_AUTH_SCHEMA_REF_RESOLVED}/modules/gmysqlbackend/schema.mysql.sql"
+POWERADMIN_SCHEMA_URL="https://raw.githubusercontent.com/poweradmin/poweradmin/${PDNSSTACK_POWERADMIN_SCHEMA_REF_RESOLVED}/sql/poweradmin-mysql-db-structure.sql"
 
-case "${PDNSSTACK_PDNS_SCHEMA_SOURCE}" in
-  official)
-    echo "[INFO] PowerDNS gmysql schema source: official (ref: ${PDNSSTACK_PDNS_SCHEMA_REF})"
-    PDNS_GMYSQL_SCHEMA_URL="https://raw.githubusercontent.com/PowerDNS/pdns/${PDNSSTACK_PDNS_SCHEMA_REF}/modules/gmysqlbackend/schema.mysql.sql"
-    
-    echo "[INFO] Downloading PowerDNS gmysql schema from: ${PDNS_GMYSQL_SCHEMA_URL}"
-    if curl -fsSL "${PDNS_GMYSQL_SCHEMA_URL}" -o "${PDNS_GMYSQL_SCHEMA_FILE}"; then
-      if [[ ! -s "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
-        echo "[ERROR] Downloaded schema file is empty. Check ref '${PDNSSTACK_PDNS_SCHEMA_REF}' and GitHub connectivity."
-        exit 1
-      fi
-      echo "[INFO] PowerDNS gmysql schema downloaded successfully."
-      chmod 644 "${PDNS_GMYSQL_SCHEMA_FILE}"
-    else
-      echo "[ERROR] Failed to download PowerDNS gmysql schema."
-      echo "        URL: ${PDNS_GMYSQL_SCHEMA_URL}"
-      echo "        Check ref '${PDNSSTACK_PDNS_SCHEMA_REF}' and GitHub connectivity."
-      exit 1
-    fi
-    ;;
-  local)
-    echo "[INFO] PowerDNS gmysql schema source: local"
-    if [[ ! -f "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
-      echo "[ERROR] Local schema file not found: ${PDNS_GMYSQL_SCHEMA_FILE}"
-      echo "        Place the schema file manually before deploying."
-      exit 1
-    fi
-    echo "[INFO] Using local PowerDNS gmysql schema: ${PDNS_GMYSQL_SCHEMA_FILE}"
-    ;;
-  disabled)
-    echo "[INFO] PowerDNS gmysql schema import: disabled"
-    rm -f "${PDNS_GMYSQL_SCHEMA_FILE}"
-    ;;
-  *)
-    echo "[ERROR] Invalid PDNSSTACK_PDNS_SCHEMA_SOURCE: ${PDNSSTACK_PDNS_SCHEMA_SOURCE}"
-    echo "        Valid options: official, local, disabled"
+echo "[INFO] PowerDNS Authoritative version: ${PDNSSTACK_AUTH_VERSION}"
+echo "[INFO] PowerDNS Authoritative image: ${PDNSSTACK_AUTH_IMAGE_RESOLVED}"
+echo "[INFO] PowerDNS Authoritative schema ref: ${PDNSSTACK_AUTH_SCHEMA_REF_RESOLVED}"
+echo "[INFO] PowerDNS Authoritative schema URL: ${PDNS_GMYSQL_SCHEMA_URL}"
+echo "[INFO] PowerAdmin version: ${PDNSSTACK_POWERADMIN_VERSION}"
+echo "[INFO] PowerAdmin image: ${PDNSSTACK_POWERADMIN_IMAGE_RESOLVED}"
+echo "[INFO] PowerAdmin schema ref: ${PDNSSTACK_POWERADMIN_SCHEMA_REF_RESOLVED}"
+echo "[INFO] PowerAdmin schema URL: ${POWERADMIN_SCHEMA_URL}"
+
+for download in \
+  "${PDNS_GMYSQL_SCHEMA_URL}|${PDNS_GMYSQL_SCHEMA_FILE}|PowerDNS Authoritative" \
+  "${POWERADMIN_SCHEMA_URL}|${POWERADMIN_SCHEMA_FILE}|PowerAdmin"; do
+  IFS='|' read -r schema_url schema_file schema_name <<< "${download}"
+  echo "[INFO] Downloading ${schema_name} schema to ${schema_file}"
+  if ! curl -fsSL "${schema_url}" -o "${schema_file}"; then
+    echo "[ERROR] Failed to download ${schema_name} schema."
+    echo "        URL: ${schema_url}"
     exit 1
-    ;;
-esac
+  fi
+  if [[ ! -s "${schema_file}" ]]; then
+    echo "[ERROR] Downloaded ${schema_name} schema file is empty: ${schema_file}"
+    exit 1
+  fi
+  chmod 644 "${schema_file}"
+done
 
 if command -v restorecon >/dev/null 2>&1; then
   if command -v semanage >/dev/null 2>&1; then
