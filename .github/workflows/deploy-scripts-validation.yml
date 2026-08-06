@@ -77,9 +77,9 @@ jobs:
 
       - name: Verify no unexpanded placeholders remain
         run: |
-          if grep -rq '{{\s*[A-Za-z_][A-Za-z0-9_]*\s*}}' config/quadlet/ config/db/ config/poweradmin/ config/cache-int/; then
+          if grep -rEq '{{[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*}}' config/quadlet/ config/db/ config/poweradmin/ config/cache-int/; then
             echo "ERROR: Found unexpanded Jinja placeholders in generated files"
-            grep -rl '{{\s*[A-Za-z_][A-Za-z0-9_]*\s*}}' config/quadlet/ config/db/ config/poweradmin/ config/cache-int/
+            grep -rEl '{{[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*}}' config/quadlet/ config/db/ config/poweradmin/ config/cache-int/
             exit 1
           fi
           echo "No unexpanded placeholders found."
