@@ -156,6 +156,47 @@ fi
 export ENABLE_CACHE_NGN
 
 # ---------------------------------------------------------
+# Construct full image references from IMAGE + IMAGE_TAG
+# PDNSSTACK_*_FULL_IMAGE = PDNSSTACK_*_IMAGE:PDNSSTACK_*_IMAGE_TAG
+# Pre-set FULL_IMAGE variables in .env take precedence.
+# ---------------------------------------------------------
+
+_build_full_image() {
+  local full_var="$1"
+  local image_var="$2"
+  local tag_var="$3"
+  local default_image="$4"
+  local default_tag="$5"
+
+  if [[ -z "${!full_var:-}" ]]; then
+    local image="${!image_var:-${default_image}}"
+    local tag="${!tag_var:-${default_tag}}"
+    printf -v "${full_var}" '%s:%s' "${image}" "${tag}"
+  fi
+  export "${full_var?}"
+}
+
+_build_full_image PDNSSTACK_MARIADB_FULL_IMAGE \
+  PDNSSTACK_MARIADB_IMAGE PDNSSTACK_MARIADB_IMAGE_TAG \
+  "docker.io/library/mariadb" "11"
+
+_build_full_image PDNSSTACK_POWERDNS_AUTH_FULL_IMAGE \
+  PDNSSTACK_POWERDNS_AUTH_IMAGE PDNSSTACK_POWERDNS_AUTH_IMAGE_TAG \
+  "docker.io/powerdns/pdns-auth" "latest"
+
+_build_full_image PDNSSTACK_POWERDNS_RECURSOR_FULL_IMAGE \
+  PDNSSTACK_POWERDNS_RECURSOR_IMAGE PDNSSTACK_POWERDNS_RECURSOR_IMAGE_TAG \
+  "docker.io/powerdns/pdns-recursor" "latest"
+
+_build_full_image PDNSSTACK_DNSDIST_FULL_IMAGE \
+  PDNSSTACK_DNSDIST_IMAGE PDNSSTACK_DNSDIST_IMAGE_TAG \
+  "docker.io/powerdns/dnsdist" "latest"
+
+_build_full_image PDNSSTACK_POWERADMIN_FULL_IMAGE \
+  PDNSSTACK_POWERADMIN_IMAGE PDNSSTACK_POWERADMIN_IMAGE_TAG \
+  "docker.io/poweradmin/poweradmin" "latest"
+
+# ---------------------------------------------------------
 # Generate runtime.env for deploy/startup/cleanup scripts
 # ---------------------------------------------------------
 

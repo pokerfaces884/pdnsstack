@@ -5,7 +5,7 @@ Requires=pdnsstack-net-network.service
 
 [Container]
 ContainerName=${PDNSSTACK_DB_NAME}
-Image=docker.io/library/mariadb:11
+Image={{ PDNSSTACK_MARIADB_FULL_IMAGE }}
 Network=pdnsstack-net.network
 IP=${PDNSSTACK_DB_IPV4}
 IP6=${PDNSSTACK_DB_IPV6}
