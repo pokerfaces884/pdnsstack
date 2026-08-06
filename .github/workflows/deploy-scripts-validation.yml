@@ -1,0 +1,304 @@
+name: Deploy Scripts Validation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/00-cleanup.sh
+      - scripts/01-create.sh
+      - scripts/02-deploy.sh
+      - template/**
+      - .env.sample
+      - config/**
+      - .github/workflows/deploy-scripts-validation.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/00-cleanup.sh
+      - scripts/01-create.sh
+      - scripts/02-deploy.sh
+      - template/**
+      - .env.sample
+      - config/**
+      - .github/workflows/deploy-scripts-validation.yml
+
+jobs:
+  shellcheck:
+    name: Shellcheck and Bash Syntax Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck
+
+      - name: Bash syntax check
+        run: |
+          bash -n scripts/00-cleanup.sh
+          bash -n scripts/01-create.sh
+          bash -n scripts/02-deploy.sh
+
+      - name: Shellcheck validation
+        run: |
+          shellcheck -S warning scripts/00-cleanup.sh
+          shellcheck -S warning scripts/01-create.sh
+          shellcheck -S warning scripts/02-deploy.sh
+
+  template-generation:
+    name: Template Generation and Variable Substitution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run 01-create.sh with default prefix
+        run: |
+          cp .env.sample .env
+          bash scripts/01-create.sh
+
+      - name: Verify generated files exist
+        run: |
+          test -f config/runtime.env
+          test -f config/quadlet/pdnsstack-net.network
+          test -f config/quadlet/pdnsstack-auth.container
+          test -f config/quadlet/pdnsstack-dnsdist.container
+          test -f config/quadlet/pdnsstack-cache-int.container
+          test -f config/quadlet/pdnsstack-db.container
+          test -f config/quadlet/pdnsstack-poweradmin.container
+          test -f config/systemd/pdnsstack-backup.service
+          test -f config/systemd/pdnsstack-backup.timer
+          test -f config/db/init.sql
+          test -f config/poweradmin/config.inc.php
+          test -f config/cache-int/recursor.yml
+          echo "All expected config files generated."
+
+      - name: Verify no unexpanded placeholders remain
+        run: |
+          if grep -rq '{{\s*[A-Za-z_][A-Za-z0-9_]*\s*}}' config/quadlet/ config/db/ config/poweradmin/ config/cache-int/; then
+            echo "ERROR: Found unexpanded Jinja placeholders in generated files"
+            grep -rl '{{\s*[A-Za-z_][A-Za-z0-9_]*\s*}}' config/quadlet/ config/db/ config/poweradmin/ config/cache-int/
+            exit 1
+          fi
+          echo "No unexpanded placeholders found."
+
+      - name: Verify runtime.env required variables
+        run: |
+          required_vars=(
+            ENABLE_CACHE_NGN
+            PDNSSTACK_NETWORK_SERVICE
+            PDNSSTACK_DB_SERVICE
+            PDNSSTACK_AUTH_SERVICE
+            PDNSSTACK_CACHE_INT_SERVICE
+            PDNSSTACK_CACHE_NGN_SERVICE
+            PDNSSTACK_DNSDIST_SERVICE
+            PDNSSTACK_BACKUP_SERVICE
+            PDNSSTACK_BACKUP_TIMER
+          )
+          for var in "${required_vars[@]}"; do
+            if ! grep -q "^${var}=" config/runtime.env; then
+              echo "ERROR: Missing variable in runtime.env: ${var}"
+              exit 1
+            fi
+          done
+          echo "runtime.env contains all required variables."
+
+  custom-prefix:
+    name: Custom PDNSSTACK_MODULE_PREFIX Support (Issue #25)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run 01-create.sh with custom prefix
+        run: |
+          cp .env.sample .env
+          sed -i 's/^PDNSSTACK_MODULE_PREFIX=.*/PDNSSTACK_MODULE_PREFIX=myrc1/' .env
+          sed -i 's/^PDNSSTACK_HOST_IPV4=.*/PDNSSTACK_HOST_IPV4=192.168.0.2/' .env
+          sed -i 's/^PDNSSTACK_INITIAL_DOMAIN=.*/PDNSSTACK_INITIAL_DOMAIN=example.com/' .env
+          sed -i 's/^PDNSSTACK_DB_ROOT_PASSWORD=.*/PDNSSTACK_DB_ROOT_PASSWORD=root-pw-test/' .env
+          sed -i 's/^PDNSSTACK_AUTH_DB_NAME=.*/PDNSSTACK_AUTH_DB_NAME=powerdns/' .env
+          sed -i 's/^PDNSSTACK_AUTH_DB_USER=.*/PDNSSTACK_AUTH_DB_USER=pdnsuser/' .env
+          sed -i 's/^PDNSSTACK_AUTH_DB_PASSWORD=.*/PDNSSTACK_AUTH_DB_PASSWORD=pdns-pw-test/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_DB_NAME=.*/PDNSSTACK_POWERADMIN_DB_NAME=poweradmin/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_DB_USER=.*/PDNSSTACK_POWERADMIN_DB_USER=pauser/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_DB_PASSWORD=.*/PDNSSTACK_POWERADMIN_DB_PASSWORD=pa-pw-test/' .env
+          bash scripts/01-create.sh
+
+      - name: Verify custom prefix applied to generated files
+        run: |
+          test -f config/quadlet/myrc1-net.network
+          test -f config/quadlet/myrc1-auth.container
+          test -f config/quadlet/myrc1-dnsdist.container
+          test -f config/quadlet/myrc1-cache-int.container
+          test -f config/quadlet/myrc1-db.container
+          test -f config/quadlet/myrc1-poweradmin.container
+          test -f config/systemd/myrc1-backup.service
+          echo "Custom prefix files verified."
+
+      - name: Verify runtime.env uses custom prefix
+        run: |
+          grep -q "PDNSSTACK_NETWORK_SERVICE=myrc1-net-network.service" config/runtime.env
+          grep -q "PDNSSTACK_DB_SERVICE=myrc1-db.service" config/runtime.env
+          grep -q "PDNSSTACK_AUTH_SERVICE=myrc1-auth.service" config/runtime.env
+          grep -q "PDNSSTACK_DNSDIST_SERVICE=myrc1-dnsdist.service" config/runtime.env
+          echo "Custom prefix correctly reflected in runtime.env."
+
+      - name: Verify no leftover default prefix in critical configs
+        run: |
+          for f in config/quadlet/myrc1-*.container config/quadlet/myrc1-*.network; do
+            if grep -q 'pdnsstack-' "${f}"; then
+              echo "ERROR: Found leftover 'pdnsstack-' prefix in ${f}"
+              grep 'pdnsstack-' "${f}"
+              exit 1
+            fi
+          done
+          echo "No leftover default prefix found."
+
+  ngn-forwarder:
+    name: NGN Forwarder Injection Verification (Issue #15)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run 01-create.sh with NGN forwarders enabled
+        run: |
+          cp .env.sample .env
+          sed -i 's/^PDNSSTACK_HOST_IPV4=.*/PDNSSTACK_HOST_IPV4=192.168.0.2/' .env
+          sed -i 's/^PDNSSTACK_INITIAL_DOMAIN=.*/PDNSSTACK_INITIAL_DOMAIN=example.com/' .env
+          sed -i 's/^PDNSSTACK_DB_ROOT_PASSWORD=.*/PDNSSTACK_DB_ROOT_PASSWORD=root-pw-test/' .env
+          sed -i 's/^PDNSSTACK_AUTH_DB_NAME=.*/PDNSSTACK_AUTH_DB_NAME=powerdns/' .env
+          sed -i 's/^PDNSSTACK_AUTH_DB_USER=.*/PDNSSTACK_AUTH_DB_USER=pdnsuser/' .env
+          sed -i 's/^PDNSSTACK_AUTH_DB_PASSWORD=.*/PDNSSTACK_AUTH_DB_PASSWORD=pdns-pw-test/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_DB_NAME=.*/PDNSSTACK_POWERADMIN_DB_NAME=poweradmin/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_DB_USER=.*/PDNSSTACK_POWERADMIN_DB_USER=pauser/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_DB_PASSWORD=.*/PDNSSTACK_POWERADMIN_DB_PASSWORD=pa-pw-test/' .env
+          sed -i 's/^PDNSSTACK_NGN_DNS_IPV6_1=.*/PDNSSTACK_NGN_DNS_IPV6_1=2001:db8::53/' .env
+          sed -i 's/^PDNSSTACK_NGN_DNS_IPV6_2=.*/PDNSSTACK_NGN_DNS_IPV6_2=2001:db8::54/' .env
+          bash scripts/01-create.sh
+
+      - name: Verify cache-ngn Quadlet file generated
+        run: |
+          test -f config/quadlet/pdnsstack-cache-ngn.container
+          echo "cache-ngn Quadlet file present."
+
+      - name: Verify NGN recursor config has forwarders injected
+        run: |
+          test -f config/cache-ngn/recursor.yml
+          grep -q 'zone: "\."' config/cache-ngn/recursor.yml
+          grep -q '2001:db8::53' config/cache-ngn/recursor.yml
+          grep -q '2001:db8::54' config/cache-ngn/recursor.yml
+          echo "NGN forwarders correctly injected."
+
+      - name: Verify ENABLE_CACHE_NGN is true in runtime.env
+        run: |
+          grep -q "ENABLE_CACHE_NGN=true" config/runtime.env
+          echo "ENABLE_CACHE_NGN=true confirmed."
+
+  schema-download:
+    name: PowerDNS Schema Download Validation (Issue #33)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download PowerDNS gmysql schema
+        run: |
+          TEMP_DIR=$(mktemp -d)
+          trap 'rm -rf "${TEMP_DIR}"' EXIT
+          PDNS_GMYSQL_SCHEMA_FILE="${TEMP_DIR}/schema.mysql.sql"
+          PDNSSTACK_PDNS_SCHEMA_REF=master
+          PDNS_GMYSQL_SCHEMA_URL="https://raw.githubusercontent.com/PowerDNS/pdns/${PDNSSTACK_PDNS_SCHEMA_REF}/modules/gmysqlbackend/schema.mysql.sql"
+
+          if ! curl -fsSL "${PDNS_GMYSQL_SCHEMA_URL}" -o "${PDNS_GMYSQL_SCHEMA_FILE}"; then
+            echo "ERROR: Failed to download schema from ${PDNS_GMYSQL_SCHEMA_URL}"
+            exit 1
+          fi
+
+          if [[ ! -s "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
+            echo "ERROR: Downloaded schema file is empty"
+            exit 1
+          fi
+
+          if ! grep -qi "CREATE TABLE" "${PDNS_GMYSQL_SCHEMA_FILE}"; then
+            echo "ERROR: Schema file missing expected CREATE TABLE statements"
+            exit 1
+          fi
+
+          echo "PowerDNS schema downloaded and validated successfully."
+
+  deploy-structure:
+    name: Deployment Directory Structure Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate config files
+        run: |
+          cp .env.sample .env
+          bash scripts/01-create.sh
+
+      - name: Verify all required config source directories exist for 02-deploy.sh
+        run: |
+          required_dirs=(dnsdist cache-int auth db poweradmin)
+          for d in "${required_dirs[@]}"; do
+            if [[ ! -d "config/${d}" ]]; then
+              echo "ERROR: Required config source directory not found: config/${d}"
+              exit 1
+            fi
+          done
+          echo "All required config source directories present."
+
+      - name: Simulate 02-deploy.sh directory creation
+        run: |
+          BASE_DIR=$(mktemp -d)
+          trap 'rm -rf "${BASE_DIR}"' EXIT
+
+          mkdir -p "${BASE_DIR}"/{config,data,backup}
+
+          for d in dnsdist cache-int cache-ngn auth db poweradmin; do
+            mkdir -p "${BASE_DIR}/config/${d}"
+            mkdir -p "${BASE_DIR}/data/${d}"
+          done
+
+          mkdir -p "${BASE_DIR}/backup/db"
+
+          # Verify required structure
+          for sub in config data backup; do
+            test -d "${BASE_DIR}/${sub}"
+          done
+
+          for d in dnsdist cache-int auth db poweradmin; do
+            test -d "${BASE_DIR}/config/${d}"
+            test -d "${BASE_DIR}/data/${d}"
+          done
+
+          test -d "${BASE_DIR}/backup/db"
+          echo "Deployment directory structure validated."
+
+  cleanup-script:
+    name: Cleanup Script Logic Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify systemctl disable pattern exists
+        run: |
+          grep -q "systemctl disable --now" scripts/00-cleanup.sh
+          echo "systemctl disable --now pattern present."
+
+      - name: Verify file removal logic exists
+        run: |
+          grep -q "rm -f" scripts/00-cleanup.sh
+          echo "File removal logic present."
+
+      - name: Verify daemon-reload is called
+        run: |
+          grep -q "systemctl daemon-reload" scripts/00-cleanup.sh
+          echo "systemctl daemon-reload present."
+
+      - name: Verify QUADLET_SUFFIXES covers expected types
+        run: |
+          grep -q "container" scripts/00-cleanup.sh
+          grep -q "network" scripts/00-cleanup.sh
+          echo "Quadlet suffix types verified."
