@@ -13,8 +13,8 @@ else
 fi
 
 systemctl daemon-reload
-systemctl enable --now "${PDNSSTACK_NETWORK_SERVICE}"
-systemctl enable --now "${PDNSSTACK_DB_SERVICE}"
+systemctl enable --now pdnsstack-net-network.service
+systemctl enable --now pdnsstack-db.service
 
 echo "[INFO] Waiting for MariaDB readiness..."
 for i in {1..60}; do
@@ -79,16 +79,16 @@ else
   echo "[WARN] Skipping schema import. Make sure the schema is already created in the database."
 fi
 
-systemctl enable --now "${PDNSSTACK_AUTH_SERVICE}"
-systemctl enable --now "${PDNSSTACK_POWERADMIN_SERVICE}"
-systemctl enable --now "${PDNSSTACK_CACHE_INT_SERVICE}"
+systemctl enable --now pdnsstack-auth.service
+systemctl enable --now pdnsstack-poweradmin.service
+systemctl enable --now pdnsstack-cache-int.service
 if [[ "${ENABLE_CACHE_NGN}" == "true" ]]; then
-  systemctl enable --now "${PDNSSTACK_CACHE_NGN_SERVICE}"
+  systemctl enable --now pdnsstack-cache-ngn.service
 else
-  systemctl disable --now "${PDNSSTACK_CACHE_NGN_SERVICE}" 2>/dev/null || true
+  systemctl disable --now pdnsstack-cache-ngn.service 2>/dev/null || true
 fi
-systemctl enable --now "${PDNSSTACK_DNSDIST_SERVICE}"
-systemctl enable --now "${PDNSSTACK_BACKUP_TIMER}"
+systemctl enable --now pdnsstack-dnsdist.service
+systemctl enable --now pdnsstack-backup.timer
 
 echo "[INFO] Startup completed."
 echo "[INFO] Next steps:"
