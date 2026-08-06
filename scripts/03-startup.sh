@@ -31,6 +31,54 @@ done
 
 podman exec -i "${PDNSSTACK_DB_NAME}" mariadb -uroot -p"${PDNSSTACK_DB_ROOT_PASSWORD}" < "${PDNSSTACK_BASE_DIR}/config/db/init.sql" || true
 
+# =========================================================
+# PowerDNS gmysql Schema Import
+# =========================================================
+
+PDNSSTACK_PDNS_SCHEMA_SOURCE="${PDNSSTACK_PDNS_SCHEMA_SOURCE:-official}"
+PDNS_GMYSQL_SCHEMA_FILE="${PDNSSTACK_BASE_DIR}/config/pdns/schema.mysql.sql"
+
+if [[ "${PDNSSTACK_PDNS_SCHEMA_SOURCE}" != "disabled" ]] && [[ -f "${PDNS_GMYSQL_SCHEMA_FILE}" ]]; then
+  echo "[INFO] Checking PowerDNS gmysql schema status..."
+  
+  # Check if domains table exists
+  DOMAINS_TABLE_EXISTS=$(podman exec "${PDNSSTACK_DB_NAME}" mariadb \
+    -u"${PDNSSTACK_AUTH_DB_USER}" \
+    -p"${PDNSSTACK_AUTH_DB_PASSWORD}" \
+    -D"${PDNSSTACK_AUTH_DB_NAME}" \
+    -Nse "SHOW TABLES LIKE 'domains';" 2>/dev/null || echo "")
+  
+  if [[ -z "${DOMAINS_TABLE_EXISTS}" ]]; then
+    echo "[INFO] PowerDNS gmysql schema not found. Importing schema.mysql.sql..."
+    if podman exec -i "${PDNSSTACK_DB_NAME}" mariadb \
+      -u"${PDNSSTACK_AUTH_DB_USER}" \
+      -p"${PDNSSTACK_AUTH_DB_PASSWORD}" \
+      -D"${PDNSSTACK_AUTH_DB_NAME}" \
+      < "${PDNS_GMYSQL_SCHEMA_FILE}"; then
+      echo "[INFO] PowerDNS gmysql schema imported successfully."
+      
+      # Verify tables were created
+      TABLES_COUNT=$(podman exec "${PDNSSTACK_DB_NAME}" mariadb \
+        -u"${PDNSSTACK_AUTH_DB_USER}" \
+        -p"${PDNSSTACK_AUTH_DB_PASSWORD}" \
+        -D"${PDNSSTACK_AUTH_DB_NAME}" \
+        -Nse "SHOW TABLES;" | wc -l)
+      
+      echo "[INFO] Created ${TABLES_COUNT} PowerDNS tables."
+    else
+      echo "[ERROR] Failed to import PowerDNS gmysql schema."
+      exit 1
+    fi
+  else
+    echo "[INFO] PowerDNS gmysql schema already exists. Skipping schema import."
+  fi
+elif [[ "${PDNSSTACK_PDNS_SCHEMA_SOURCE}" == "disabled" ]]; then
+  echo "[INFO] PowerDNS gmysql schema import is disabled."
+else
+  echo "[WARN] PowerDNS gmysql schema file not found: ${PDNS_GMYSQL_SCHEMA_FILE}"
+  echo "[WARN] Skipping schema import. Make sure the schema is already created in the database."
+fi
+
 systemctl enable --now pdnsstack-auth.service
 systemctl enable --now pdnsstack-poweradmin.service
 systemctl enable --now pdnsstack-cache-int.service
