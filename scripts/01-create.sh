@@ -189,7 +189,7 @@ PDNSSTACK_POWERADMIN_HTTP_PORT=${PDNSSTACK_POWERADMIN_HTTP_PORT}
 PDNSSTACK_BACKUP_SCHEDULE=${PDNSSTACK_BACKUP_SCHEDULE}
 EOF
 
-chmod 644 "${RUNTIME_FILE}" || true
+chmod 600 "${RUNTIME_FILE}" || true
 
 # ---------------------------------------------------------
 # Generate config files from templates
@@ -418,46 +418,4 @@ lines = new_lines
 
 forward_block = [
     "  forward_zones_recurse:",
-    '    - zone: "."',
-    "      forwarders:",
-]
-
-for f in forwarders:
-    forward_block.append(f'        - "{f}"')
-
-if "recursor:" in lines:
-    idx = lines.index("recursor:")
-    insert_at = idx + 1
-    lines[insert_at:insert_at] = forward_block
-else:
-    if lines and lines[-1].strip():
-        lines.append("")
-    lines.append("recursor:")
-    lines.extend(forward_block)
-
-path.write_text("\n".join(lines) + "\n")
-print(f"[INFO] updated forward_zones_recurse in {path} for {mode}")
-PY_FORWARDERS
-}
-
-pdnsstack_generate_recursor_forwarders() {
-  pdnsstack_upsert_recursor_forwarders "${CONFIG_DIR}/cache-int/recursor.yml" "cache-int"
-
-  if [[ "${ENABLE_CACHE_NGN:-false}" == "true" ]]; then
-    pdnsstack_upsert_recursor_forwarders "${CONFIG_DIR}/cache-ngn/recursor.yml" "cache-ngn"
-  else
-    echo "[INFO] cache-ngn disabled; skip cache-ngn forwarder generation"
-  fi
-}
-
-pdnsstack_generate_recursor_forwarders
-
-echo "[INFO] Environment validation completed."
-echo "[INFO] Initial domain: ${PDNSSTACK_INITIAL_DOMAIN}"
-echo "[INFO] Host IPv4: ${PDNSSTACK_HOST_IPV4}"
-echo "[INFO] Module prefix: ${PDNSSTACK_MODULE_PREFIX}"
-echo "[INFO] Network name: ${PDNSSTACK_NETWORK_NAME}"
-echo "[INFO] DB container name: ${PDNSSTACK_DB_NAME}"
-echo "[INFO] ENABLE_CACHE_NGN=${ENABLE_CACHE_NGN}"
-echo "[INFO] Generated runtime file: ${RUNTIME_FILE}"
-echo "[INFO] Generated config directory: ${CONFIG_DIR}"
+    '    - zone: " .
