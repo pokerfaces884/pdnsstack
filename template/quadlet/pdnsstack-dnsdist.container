@@ -5,7 +5,7 @@ Requires=pdnsstack-net-network.service
 
 [Container]
 ContainerName=${PDNSSTACK_DNSDIST_NAME}
-Image=docker.io/powerdns/dnsdist:latest
+Image={{ PDNSSTACK_DNSDIST_FULL_IMAGE }}
 Network=pdnsstack-net.network
 IP=${PDNSSTACK_DNSDIST_IPV4}
 IP6=${PDNSSTACK_DNSDIST_IPV6}

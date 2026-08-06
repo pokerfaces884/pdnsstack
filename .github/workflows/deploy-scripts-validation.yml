@@ -276,6 +276,60 @@ jobs:
           test -d "${BASE_DIR}/backup/db"
           echo "Deployment directory structure validated."
 
+  image-version-substitution:
+    name: Image Version Variable Substitution
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test default image versions from .env.sample
+        run: |
+          cp .env.sample .env
+          bash scripts/01-create.sh
+          grep -q "Image=docker.io/library/mariadb:11" config/quadlet/pdnsstack-db.container
+          grep -q "Image=docker.io/powerdns/pdns-auth:latest" config/quadlet/pdnsstack-auth.container
+          grep -q "Image=docker.io/powerdns/pdns-recursor:latest" config/quadlet/pdnsstack-cache-int.container
+          grep -q "Image=docker.io/powerdns/dnsdist:latest" config/quadlet/pdnsstack-dnsdist.container
+          grep -q "Image=docker.io/poweradmin/poweradmin:latest" config/quadlet/pdnsstack-poweradmin.container
+          echo "Default image versions verified."
+
+      - name: Test custom image tag
+        run: |
+          cp .env.sample .env
+          sed -i 's/^PDNSSTACK_MARIADB_IMAGE_TAG=.*/PDNSSTACK_MARIADB_IMAGE_TAG=11.2/' .env
+          bash scripts/01-create.sh
+          grep -q "Image=docker.io/library/mariadb:11.2" config/quadlet/pdnsstack-db.container
+          echo "Custom image tag verified."
+
+      - name: Test custom image registry
+        run: |
+          cp .env.sample .env
+          sed -i 's|^PDNSSTACK_POWERDNS_AUTH_IMAGE=.*|PDNSSTACK_POWERDNS_AUTH_IMAGE=harbor.example.com/pdns/auth|' .env
+          bash scripts/01-create.sh
+          grep -q "Image=harbor.example.com/pdns/auth:latest" config/quadlet/pdnsstack-auth.container
+          echo "Custom image registry verified."
+
+      - name: Test FULL_IMAGE override
+        run: |
+          cp .env.sample .env
+          echo 'PDNSSTACK_MARIADB_FULL_IMAGE=custom-mariadb:dev' >> .env
+          bash scripts/01-create.sh
+          grep -q "Image=custom-mariadb:dev" config/quadlet/pdnsstack-db.container
+          echo "FULL_IMAGE override verified."
+
+      - name: Verify no unexpanded image placeholders
+        run: |
+          cp .env.sample .env
+          bash scripts/01-create.sh
+          if grep -rEq '{{[[:space:]]*PDNSSTACK_[A-Z_]*FULL_IMAGE[[:space:]]*}}' config/quadlet/; then
+            echo "ERROR: Found unexpanded image placeholders"
+            grep -rEl '{{[[:space:]]*PDNSSTACK_[A-Z_]*FULL_IMAGE[[:space:]]*}}' config/quadlet/
+            exit 1
+          fi
+          echo "No unexpanded image placeholders found."
+
   cleanup-script:
     name: Cleanup Script Logic Verification
     runs-on: ubuntu-latest
