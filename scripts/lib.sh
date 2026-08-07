@@ -72,7 +72,7 @@ validate_version_format() {
 
 derive_auth_image_from_version() {
   local version="$1"
-  printf 'docker.io/powerdns/pdns-auth-%s\n' "${version//./}"
+  printf 'powerdns/pdns-auth-%s\n' "${version//./}"
 }
 
 derive_auth_schema_ref() {
@@ -81,7 +81,7 @@ derive_auth_schema_ref() {
   if [[ -n "${override}" ]]; then
     printf '%s\n' "${override}"
   else
-    printf 'refs/heads/rel/auth-%s.x\n' "${version}"
+    printf 'rel-auth-%s.x\n' "${version}"
   fi
 }
 
