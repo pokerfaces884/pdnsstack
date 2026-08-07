@@ -86,8 +86,6 @@ mkdir -p "${PDNSSTACK_BASE_DIR}/backup/db"
 cp -f "${ENV_FILE}" "${PDNSSTACK_BASE_DIR}/.env"
 chmod 600 "${PDNSSTACK_BASE_DIR}/.env"
 
-echo "[INFO] DEBUG"
-
 cp -f "${RUNTIME_FILE}" "${PDNSSTACK_BASE_DIR}/config/runtime.env"
 chmod 644 "${PDNSSTACK_BASE_DIR}/config/runtime.env" || true
 
