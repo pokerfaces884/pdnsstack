@@ -397,8 +397,8 @@ jobs:
           bash scripts/01-create.sh
           grep -q "Image=docker.io/library/mariadb:11" config/quadlet/pdnsstack-db.container
           grep -q "Image=powerdns/pdns-auth-52" config/quadlet/pdnsstack-auth.container
-          grep -q "Image=docker.io/powerdns/pdns-recursor:latest" config/quadlet/pdnsstack-cache-int.container
-          grep -q "Image=docker.io/powerdns/dnsdist:latest" config/quadlet/pdnsstack-dnsdist.container
+          grep -q "Image=docker.io/powerdns/pdns-recursor-55:latest" config/quadlet/pdnsstack-cache-int.container
+          grep -q "Image=docker.io/powerdns/dnsdist-21:latest" config/quadlet/pdnsstack-dnsdist.container
           grep -q "Image=poweradmin/poweradmin:4.4.0" config/quadlet/pdnsstack-poweradmin.container
           echo "Default image versions verified."
  
