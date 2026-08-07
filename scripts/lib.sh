@@ -81,7 +81,7 @@ derive_auth_schema_ref() {
   if [[ -n "${override}" ]]; then
     printf '%s\n' "${override}"
   else
-    printf 'rel-auth-%s.x\n' "${version}"
+    printf 'refs/heads/rel/auth-%s.x\n' "${version}"
   fi
 }
 
