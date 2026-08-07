@@ -143,7 +143,7 @@ chmod 600 "${PDNSSTACK_BASE_DIR}/config/poweradmin/config.inc.php" || true
 # =========================================================
 
 PDNSSTACK_AUTH_IMAGE_RESOLVED="${PDNSSTACK_AUTH_IMAGE_FULL:-$(derive_auth_image_from_version "${PDNSSTACK_AUTH_VERSION}")}"
-PDNSSTACK_POWERADMIN_IMAGE_RESOLVED="${PDNSSTACK_POWERADMIN_IMAGE_FULL:-poweradmin/poweradmin:${PDNSSTACK_POWERADMIN_VERSION}}"
+PDNSSTACK_POWERADMIN_IMAGE_RESOLVED="${PDNSSTACK_POWERADMIN_IMAGE_FULL:-docker.io/poweradmin/poweradmin:${PDNSSTACK_POWERADMIN_VERSION}}"
 PDNSSTACK_AUTH_SCHEMA_REF_RESOLVED="$(
   derive_auth_schema_ref \
     "${PDNSSTACK_AUTH_VERSION}" \

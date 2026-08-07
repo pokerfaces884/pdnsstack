@@ -72,7 +72,7 @@ validate_version_format() {
 
 derive_auth_image_from_version() {
   local version="$1"
-  printf 'powerdns/pdns-auth-%s\n' "${version//./}"
+  printf 'docker.io/powerdns/pdns-auth-%s\n' "${version//./}"
 }
 
 derive_auth_schema_ref() {
