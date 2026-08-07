@@ -15,6 +15,13 @@ else
   ENABLE_CACHE_NGN=false
 fi
 
+DB_DATA_DIR="${PDNSSTACK_BASE_DIR}/data/db"
+if [[ -d "${DB_DATA_DIR}" ]] && find "${DB_DATA_DIR}" -mindepth 1 -print -quit | grep -q .; then
+  echo "[WARN] Existing MariaDB data detected in ${DB_DATA_DIR}."
+  echo "[WARN] MariaDB root password changes are applied only on first initialization."
+  echo "[WARN] If you changed PDNSSTACK_DB_ROOT_PASSWORD, reinitialize ${DB_DATA_DIR} before startup."
+fi
+
 systemctl daemon-reload
 systemctl enable --now "${PDNSSTACK_NETWORK_SERVICE}"
 systemctl enable --now "${PDNSSTACK_DB_SERVICE}"
