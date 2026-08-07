@@ -1,0 +1,11 @@
+Release Candidate 2: Version-linked Docker images and schema download/import support
+
+Includes:
+- Version-linked PowerDNS Authoritative and PowerAdmin image derivation from version variables
+- Idempotent schema download and import from GitHub repositories
+- Container image variables for MariaDB, Recursor, and dnsdist configurable via .env
+- GitHub Actions CI workflow for deployment script validation
+- Complete test coverage for version derivation, schema handling, and startup idempotency
+
+All Issues #15-40 resolved.
+Ready for 1.0-RC2 release testing.
