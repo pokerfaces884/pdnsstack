@@ -23,8 +23,8 @@ if [[ -d "${DB_DATA_DIR}" ]] && find "${DB_DATA_DIR}" -mindepth 1 -print -quit |
 fi
 
 systemctl daemon-reload
-systemctl enable --now "${PDNSSTACK_NETWORK_SERVICE}"
-systemctl enable --now "${PDNSSTACK_DB_SERVICE}"
+systemctl start "${PDNSSTACK_NETWORK_SERVICE}" || true
+systemctl start "${PDNSSTACK_DB_SERVICE}" || true
 
 wait_for_mariadb "${PDNSSTACK_DB_NAME}" "${PDNSSTACK_DB_ROOT_PASSWORD}"
 
@@ -93,16 +93,16 @@ else
  echo "[INFO] PowerAdmin schema imported successfully."
 fi
 
-systemctl enable --now "${PDNSSTACK_AUTH_SERVICE}"
-systemctl enable --now "${PDNSSTACK_POWERADMIN_SERVICE}"
-systemctl enable --now "${PDNSSTACK_CACHE_INT_SERVICE}"
+systemctl start "${PDNSSTACK_AUTH_SERVICE}" || true
+systemctl start "${PDNSSTACK_POWERADMIN_SERVICE}" || true
+systemctl start "${PDNSSTACK_CACHE_INT_SERVICE}" || true
 if [[ "${ENABLE_CACHE_NGN}" == "true" ]]; then
-  systemctl enable --now "${PDNSSTACK_CACHE_NGN_SERVICE}"
+  systemctl start "${PDNSSTACK_CACHE_NGN_SERVICE}" || true
 else
   systemctl disable --now "${PDNSSTACK_CACHE_NGN_SERVICE}" 2>/dev/null || true
 fi
-systemctl enable --now "${PDNSSTACK_DNSDIST_SERVICE}"
-systemctl enable --now "${PDNSSTACK_BACKUP_TIMER}"
+systemctl start "${PDNSSTACK_DNSDIST_SERVICE}" || true
+systemctl start "${PDNSSTACK_BACKUP_TIMER}" || true
 
 echo "[INFO] Startup completed."
 echo "[INFO] Next steps:"
