@@ -83,6 +83,17 @@ jobs:
           test -f config/cache-int/recursor.yml
           echo "All expected config files generated."
 
+      - name: Verify MariaDB root password is rendered from .env
+        run: |
+          sed -i 's/^PDNSSTACK_DB_ROOT_PASSWORD=.*/PDNSSTACK_DB_ROOT_PASSWORD=root-pw-one/' .env
+          bash scripts/01-create.sh
+          grep -q "Environment=MARIADB_ROOT_PASSWORD=root-pw-one" config/quadlet/pdnsstack-db.container
+
+          sed -i 's/^PDNSSTACK_DB_ROOT_PASSWORD=.*/PDNSSTACK_DB_ROOT_PASSWORD=root-pw-two/' .env
+          bash scripts/01-create.sh
+          grep -q "Environment=MARIADB_ROOT_PASSWORD=root-pw-two" config/quadlet/pdnsstack-db.container
+          echo "MariaDB root password rendering verified."
+
       - name: Verify no unexpanded placeholders remain
         run: |
           if grep -rEq '{{[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*}}' config/quadlet/ config/db/ config/poweradmin/ config/cache-int/; then
