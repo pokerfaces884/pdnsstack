@@ -217,8 +217,8 @@ jobs:
           source scripts/lib.sh
           validate_version_format "PDNSSTACK_AUTH_VERSION" "5.2" major_minor
           validate_version_format "PDNSSTACK_POWERADMIN_VERSION" "4.4.0" semver
-          test "$(derive_auth_image_from_version 5.2)" = "powerdns/pdns-auth-52"
-          test "$(derive_auth_schema_ref 5.2)" = "rel-auth-5.2.x"
+          test "$(derive_auth_image_from_version 5.2)" = "docker.io/powerdns/pdns-auth-52"
+          test "$(derive_auth_schema_ref 5.2)" = "refs/heads/rel/auth-5.2.x"
           test "$(derive_poweradmin_schema_ref 4.4.0)" = "v4.4.0"
 
       - name: Reject invalid version formats
@@ -297,7 +297,7 @@ jobs:
 
           test -f "${BASE_DIR}/config/schema/pdns-auth-gmysql-schema.mysql.sql"
           test -f "${BASE_DIR}/config/schema/poweradmin-mysql-db-structure.sql"
-          grep -q "PowerDNS Authoritative schema ref: rel-auth-5.1.x" deploy.log
+          grep -q "PowerDNS Authoritative schema ref: refs/heads/rel/auth-5.1.x" deploy.log
           grep -q "PowerAdmin schema ref: v4.3.4" deploy.log
 
       - name: Fail 02-deploy.sh when schema download fails
