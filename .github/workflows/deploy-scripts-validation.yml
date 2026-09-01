@@ -217,8 +217,8 @@ jobs:
           source scripts/lib.sh
           validate_version_format "PDNSSTACK_AUTH_VERSION" "5.2" major_minor
           validate_version_format "PDNSSTACK_POWERADMIN_VERSION" "4.4.0" semver
-          test "$(derive_auth_image_from_version 5.2)" = "powerdns/pdns-auth-52"
-          test "$(derive_auth_schema_ref 5.2)" = "rel-auth-5.2.x"
+          test "$(derive_auth_image_from_version 5.2)" = "docker.io/powerdns/pdns-auth-52"
+          test "$(derive_auth_schema_ref 5.2)" = "refs/heads/rel/auth-5.2.x"
           test "$(derive_poweradmin_schema_ref 4.4.0)" = "v4.4.0"
 
       - name: Reject invalid version formats
@@ -297,7 +297,7 @@ jobs:
 
           test -f "${BASE_DIR}/config/schema/pdns-auth-gmysql-schema.mysql.sql"
           test -f "${BASE_DIR}/config/schema/poweradmin-mysql-db-structure.sql"
-          grep -q "PowerDNS Authoritative schema ref: rel-auth-5.1.x" deploy.log
+          grep -q "PowerDNS Authoritative schema ref: refs/heads/rel/auth-5.1.x" deploy.log
           grep -q "PowerAdmin schema ref: v4.3.4" deploy.log
 
       - name: Fail 02-deploy.sh when schema download fails
@@ -396,20 +396,20 @@ jobs:
           cp .env.sample .env
           bash scripts/01-create.sh
           grep -q "Image=docker.io/library/mariadb:11" config/quadlet/pdnsstack-db.container
-          grep -q "Image=powerdns/pdns-auth-52" config/quadlet/pdnsstack-auth.container
+          grep -q "Image=docker.io/powerdns/pdns-auth-51" config/quadlet/pdnsstack-auth.container
           grep -q "Image=docker.io/powerdns/pdns-recursor-55:latest" config/quadlet/pdnsstack-cache-int.container
           grep -q "Image=docker.io/powerdns/dnsdist-21:latest" config/quadlet/pdnsstack-dnsdist.container
-          grep -q "Image=poweradmin/poweradmin:4.4.0" config/quadlet/pdnsstack-poweradmin.container
+          grep -q "Image=docker.io/poweradmin/poweradmin:4.3.0" config/quadlet/pdnsstack-poweradmin.container
           echo "Default image versions verified."
  
       - name: Test custom version-derived images
         run: |
           cp .env.sample .env
-          sed -i 's/^PDNSSTACK_AUTH_VERSION=.*/PDNSSTACK_AUTH_VERSION=5.1/' .env
-          sed -i 's/^PDNSSTACK_POWERADMIN_VERSION=.*/PDNSSTACK_POWERADMIN_VERSION=4.3.4/' .env
+          sed -i 's/^PDNSSTACK_AUTH_VERSION=.*/PDNSSTACK_AUTH_VERSION=5.2/' .env
+          sed -i 's/^PDNSSTACK_POWERADMIN_VERSION=.*/PDNSSTACK_POWERADMIN_VERSION=4.4.0/' .env
           bash scripts/01-create.sh
-          grep -q "Image=powerdns/pdns-auth-51" config/quadlet/pdnsstack-auth.container
-          grep -q "Image=poweradmin/poweradmin:4.3.4" config/quadlet/pdnsstack-poweradmin.container
+          grep -q "Image=docker.io/powerdns/pdns-auth-52" config/quadlet/pdnsstack-auth.container
+          grep -q "Image=docker.io/poweradmin/poweradmin:4.4.0" config/quadlet/pdnsstack-poweradmin.container
           echo "Custom version-derived images verified."
  
       - name: Test legacy image overrides remain supported
